@@ -94,7 +94,6 @@ contract AMMUtility is Ownable, ReentrancyGuard {
     }
 
     function withdrawETH() external onlyOwner {
-        uint256 contractBalance = address(this).balance;
         TransferHelper.safeTransferETH(msg.sender, address(this).balance);
     }
 }

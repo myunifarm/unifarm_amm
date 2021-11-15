@@ -382,7 +382,14 @@ contract UnifarmRouter02 is IUnifarmRouter02 {
                     ? (reserve0, reserve1)
                     : (reserve1, reserve0);
                 amountInput = IERC20(input).balanceOf(address(pair)).sub(reserveInput);
-                amountOutput = UnifarmLibrary.getAmountOut(amountInput, reserveInput, reserveOutput);
+                amountOutput = UnifarmLibrary.getAmountOut(
+                    factory,
+                    amountInput,
+                    reserveInput,
+                    reserveOutput,
+                    input,
+                    output
+                );
             }
             (uint256 amount0Out, uint256 amount1Out) = input == token0
                 ? (uint256(0), amountOutput)
@@ -464,17 +471,21 @@ contract UnifarmRouter02 is IUnifarmRouter02 {
     function getAmountOut(
         uint256 amountIn,
         uint256 reserveIn,
-        uint256 reserveOut
-    ) public pure returns (uint256 amountOut) {
-        return UnifarmLibrary.getAmountOut(amountIn, reserveIn, reserveOut);
+        uint256 reserveOut,
+        address tokenIn,
+        address tokenOut
+    ) public view returns (uint256 amountOut) {
+        return UnifarmLibrary.getAmountOut(factory, amountIn, reserveIn, reserveOut, tokenIn, tokenOut);
     }
 
     function getAmountIn(
         uint256 amountOut,
         uint256 reserveIn,
-        uint256 reserveOut
-    ) public pure returns (uint256 amountIn) {
-        return UnifarmLibrary.getAmountIn(amountOut, reserveIn, reserveOut);
+        uint256 reserveOut,
+        address tokenIn,
+        address tokenOut
+    ) public view returns (uint256 amountIn) {
+        return UnifarmLibrary.getAmountIn(factory, amountOut, reserveIn, reserveOut, tokenIn, tokenOut);
     }
 
     function getAmountsOut(uint256 amountIn, address[] memory path) public view returns (uint256[] memory amounts) {

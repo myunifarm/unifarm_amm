@@ -62,13 +62,18 @@ library UnifarmLibrary {
 
     // given an input amount of an asset and pair reserves, returns the maximum output amount of the other asset
     function getAmountOut(
+        address factory,
         uint256 amountIn,
         uint256 reserveIn,
-        uint256 reserveOut
-    ) internal pure returns (uint256 amountOut) {
+        uint256 reserveOut,
+        address tokenIn,
+        address tokenOut
+    ) internal view returns (uint256 amountOut) {
         require(amountIn > 0, 'UnifarmLibrary: INSUFFICIENT_INPUT_AMOUNT');
         require(reserveIn > 0 && reserveOut > 0, 'UnifarmLibrary: INSUFFICIENT_LIQUIDITY');
-        uint256 amountInWithFee = amountIn.mul(997);
+        address pair = pairFor(factory, tokenIn, tokenOut);
+        uint256 fees = _swapFee(factory, pair);
+        uint256 amountInWithFee = amountIn.mul(1000 - fees);
         uint256 numerator = amountInWithFee.mul(reserveOut);
         uint256 denominator = reserveIn.mul(1000).add(amountInWithFee);
         amountOut = numerator / denominator;
@@ -76,15 +81,28 @@ library UnifarmLibrary {
 
     // given an output amount of an asset and pair reserves, returns a required input amount of the other asset
     function getAmountIn(
+        address factory,
         uint256 amountOut,
         uint256 reserveIn,
-        uint256 reserveOut
-    ) internal pure returns (uint256 amountIn) {
+        uint256 reserveOut,
+        address tokenIn,
+        address tokenOut
+    ) internal view returns (uint256 amountIn) {
         require(amountOut > 0, 'UnifarmLibrary: INSUFFICIENT_OUTPUT_AMOUNT');
         require(reserveIn > 0 && reserveOut > 0, 'UnifarmLibrary: INSUFFICIENT_LIQUIDITY');
+        address pair = pairFor(factory, tokenIn, tokenOut);
+        uint256 fees = _swapFee(factory, pair);
         uint256 numerator = reserveIn.mul(amountOut).mul(1000);
-        uint256 denominator = reserveOut.sub(amountOut).mul(997);
+        uint256 denominator = reserveOut.sub(amountOut).mul(1000 - fees);
         amountIn = (numerator / denominator).add(1);
+    }
+
+    function _swapFee(address factory, address pair) private view returns (uint256 fees) {
+        (bool lpFeesInToken, bool swapFeesInToken, uint256 lpFee, uint256 swapFee) = IUnifarmFactory(factory)
+            .pairConfigs(pair);
+
+        if (swapFeesInToken) fees = fees.add(swapFee);
+        if (lpFeesInToken) fees = fees.add(lpFee);
     }
 
     // performs chained getAmountOut calculations on any number of pairs
@@ -98,7 +116,7 @@ library UnifarmLibrary {
         amounts[0] = amountIn;
         for (uint256 i; i < path.length - 1; i++) {
             (uint256 reserveIn, uint256 reserveOut) = getReserves(factory, path[i], path[i + 1]);
-            amounts[i + 1] = getAmountOut(amounts[i], reserveIn, reserveOut);
+            amounts[i + 1] = getAmountOut(factory, amounts[i], reserveIn, reserveOut, path[i], path[i + 1]);
         }
     }
 
@@ -113,7 +131,7 @@ library UnifarmLibrary {
         amounts[amounts.length - 1] = amountOut;
         for (uint256 i = path.length - 1; i > 0; i--) {
             (uint256 reserveIn, uint256 reserveOut) = getReserves(factory, path[i - 1], path[i]);
-            amounts[i - 1] = getAmountIn(amounts[i], reserveIn, reserveOut);
+            amounts[i - 1] = getAmountIn(factory, amounts[i], reserveIn, reserveOut, path[i - 1], path[i]);
         }
     }
 }

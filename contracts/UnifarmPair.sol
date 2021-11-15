@@ -25,6 +25,7 @@ contract UnifarmPair is IUnifarmPair, UnifarmERC20 {
 
     uint256 public price0CumulativeLast;
     uint256 public price1CumulativeLast;
+    uint256 public kLast; // reserve0 * reserve1, as of immediately after the most recent liquidity event
 
     uint256 private unlocked = 1;
     modifier lock() {
@@ -57,8 +58,13 @@ contract UnifarmPair is IUnifarmPair, UnifarmERC20 {
         require(success && (data.length == 0 || abi.decode(data, (bool))), 'Unifarm: TRANSFER_FAILED');
     }
 
+    function _safeTransferETH(address to, uint256 value) private {
+        (bool success, ) = to.call.value(value)(new bytes(0));
+        require(success, 'Unifarm: ETH_TRANSFER_FAILED');
+    }
+
     event Mint(address indexed sender, uint256 amount0, uint256 amount1);
-    event Burn(address indexed sender, uint256 amount0, uint256 amount1, address indexed to);
+    event Burn(address indexed sender, uint256 amount0, uint256 amount1, address indexed to, uint256 ethFee);
     event Swap(
         address indexed sender,
         uint256 amount0In,
@@ -72,7 +78,7 @@ contract UnifarmPair is IUnifarmPair, UnifarmERC20 {
     event FeeDeducted(uint256 fee, bool feeInToken, address feeToken);
 
     constructor() public {
-        factory = msg.sender;
+        factory = _msgSender();
     }
 
     // called once by the factory at time of deployment
@@ -85,7 +91,7 @@ contract UnifarmPair is IUnifarmPair, UnifarmERC20 {
         require(_token1 != address(0), 'Unifarm: _token1 ZERO ADDRESS');
         require(_trustedForwarder != address(0), 'Unifarm: _trustedForwarder ZERO ADDRESS');
 
-        require(msg.sender == factory, 'Unifarm: FORBIDDEN'); // sufficient check
+        require(_msgSender() == factory, 'Unifarm: FORBIDDEN'); // sufficient check
         token0 = _token0;
         token1 = _token1;
         trustedForwarder = _trustedForwarder;
@@ -112,44 +118,29 @@ contract UnifarmPair is IUnifarmPair, UnifarmERC20 {
         emit Sync(reserve0, reserve1);
     }
 
-    function _deductTokenFee(
-        address _feeTo,
-        uint256 _feeInReserve0,
-        uint256 _feeInReserve1
-    ) internal {
-        _safeTransfer(token0, _feeTo, _feeInReserve0);
-        _safeTransfer(token1, _feeTo, _feeInReserve1);
-        emit FeeDeducted(_feeInReserve0, true, token0);
-        emit FeeDeducted(_feeInReserve1, true, token1);
-    }
-
-    function _deductETHFee(address payable _feeTo, uint256 _fee) internal {
-        require(msg.value >= _fee, 'Unifarm: REQUIRE_FEE');
-        _feeTo.transfer(_fee);
-        emit FeeDeducted(_fee, false, address(0));
-    }
-
-    function _mintFee(uint256 _reserve0, uint256 _reserve1)
-        private
-        returns (uint256 feeInReserve0, uint256 feeInReserve1)
-    {
-        (bool lpFeesInToken, , uint256 lpFee, ) = IUnifarmFactory(factory).pairConfigs(address(this));
-        address payable feeTo = IUnifarmFactory(factory).feeTo();
-        bool feeOn = feeTo != address(0);
-
+    // if fee is on, mint liquidity equivalent to 1/6th of the growth in sqrt(k)
+    function _mintFee(uint112 _reserve0, uint112 _reserve1) private returns (bool feeOn) {
+        address feeTo = IUnifarmFactory(factory).feeTo();
+        feeOn = feeTo != address(0);
+        uint256 _kLast = kLast; // gas savings
         if (feeOn) {
-            if (lpFeesInToken) {
-                feeInReserve0 = (_reserve0.mul(lpFee)) / (1000);
-                feeInReserve1 = (_reserve1.mul(lpFee)) / (1000);
-                _deductTokenFee(feeTo, feeInReserve0, feeInReserve1);
-            } else {
-                _deductETHFee(feeTo, lpFee);
+            if (_kLast != 0) {
+                uint256 rootK = Math.sqrt(uint256(_reserve0).mul(_reserve1));
+                uint256 rootKLast = Math.sqrt(_kLast);
+                if (rootK > rootKLast) {
+                    uint256 numerator = totalSupply.mul(rootK.sub(rootKLast));
+                    uint256 denominator = rootK.mul(5).add(rootKLast);
+                    uint256 liquidity = numerator / denominator;
+                    if (liquidity > 0) _mint(feeTo, liquidity);
+                }
             }
+        } else if (_kLast != 0) {
+            kLast = 0;
         }
     }
 
     // this low-level function should be called from a contract which performs important safety checks
-    function mint(address to) external payable lock returns (uint256 liquidity) {
+    function mint(address to) external lock returns (uint256 liquidity) {
         require(to != address(0), 'Unifarm: to ZERO ADDRESS');
         (uint112 _reserve0, uint112 _reserve1, ) = getReserves(); // gas savings
         uint256 balance0 = IERC20(token0).balanceOf(address(this));
@@ -157,10 +148,7 @@ contract UnifarmPair is IUnifarmPair, UnifarmERC20 {
         uint256 amount0 = balance0.sub(_reserve0);
         uint256 amount1 = balance1.sub(_reserve1);
 
-        (uint256 feeInReserve0, uint256 feeInReserve1) = _mintFee(amount0, amount1);
-        amount0 = amount0.sub(feeInReserve0);
-        amount1 = amount1.sub(feeInReserve1);
-
+        bool feeOn = _mintFee(_reserve0, _reserve1);
         uint256 _totalSupply = totalSupply; // gas savings, must be defined here since totalSupply can update in _mintFee
         if (_totalSupply == 0) {
             liquidity = Math.sqrt(amount0.mul(amount1)).sub(MINIMUM_LIQUIDITY);
@@ -171,15 +159,13 @@ contract UnifarmPair is IUnifarmPair, UnifarmERC20 {
         require(liquidity > 0, 'Unifarm: INSUFFICIENT_LIQUIDITY_MINTED');
         _mint(to, liquidity);
 
-        balance0 = IERC20(token0).balanceOf(address(this));
-        balance1 = IERC20(token1).balanceOf(address(this));
         _update(balance0, balance1, _reserve0, _reserve1);
-
+        if (feeOn) kLast = uint256(reserve0).mul(reserve1); // reserve0 and reserve1 are up-to-date
         emit Mint(_msgSender(), amount0, amount1);
     }
 
     // this low-level function should be called from a contract which performs important safety checks
-    function burn(address to) external payable lock returns (uint256 amount0, uint256 amount1) {
+    function burn(address to) external lock returns (uint256 amount0, uint256 amount1) {
         require(to != address(0), 'Unifarm: to ZERO ADDRESS');
         (uint112 _reserve0, uint112 _reserve1, ) = getReserves(); // gas savings
         address _token0 = token0; // gas savings
@@ -188,23 +174,24 @@ contract UnifarmPair is IUnifarmPair, UnifarmERC20 {
         uint256 balance1 = IERC20(_token1).balanceOf(address(this));
         uint256 liquidity = balanceOf[address(this)];
 
+        bool feeOn = _mintFee(_reserve0, _reserve1);
         uint256 _totalSupply = totalSupply; // gas savings, must be defined here since totalSupply can update in _mintFee
         amount0 = liquidity.mul(balance0) / _totalSupply; // using balances ensures pro-rata distribution
         amount1 = liquidity.mul(balance1) / _totalSupply; // using balances ensures pro-rata distribution
+        uint256 ethFee = liquidity.mul(address(this).balance) / _totalSupply;
+
         require(amount0 > 0 && amount1 > 0, 'Unifarm: INSUFFICIENT_LIQUIDITY_BURNED');
-
-        (uint256 feeInReserve0, uint256 feeInReserve1) = _mintFee(amount0, amount1);
-        amount0 = amount0.sub(feeInReserve0);
-        amount1 = amount1.sub(feeInReserve1);
-
         _burn(address(this), liquidity);
         _safeTransfer(_token0, to, amount0);
         _safeTransfer(_token1, to, amount1);
+        _safeTransferETH(to, ethFee);
+
         balance0 = IERC20(_token0).balanceOf(address(this));
         balance1 = IERC20(_token1).balanceOf(address(this));
 
         _update(balance0, balance1, _reserve0, _reserve1);
-        emit Burn(_msgSender(), amount0, amount1, to);
+        if (feeOn) kLast = uint256(reserve0).mul(reserve1); // reserve0 and reserve1 are up-to-date
+        emit Burn(_msgSender(), amount0, amount1, to, ethFee);
     }
 
     // this low-level function should be called from a contract which performs important safety checks
@@ -238,33 +225,53 @@ contract UnifarmPair is IUnifarmPair, UnifarmERC20 {
         require(amount0In > 0 || amount1In > 0, 'Unifarm: INSUFFICIENT_INPUT_AMOUNT');
         {
             // scope for reserve{0,1}Adjusted, avoids stack too deep errors
-            uint256 fee0;
-            uint256 fee1;
-            if (amount0In > 0) fee0 = _swapFee(token0, amount0In);
-            if (amount1In > 0) fee1 = _swapFee(token1, amount1In);
-            uint256 balance0Adjusted = balance0.mul(1000).sub(fee0);
-            uint256 balance1Adjusted = balance1.mul(1000).sub(fee1);
+            uint256 toSub0;
+            uint256 toSub1;
+            if (amount0In > 0) toSub0 = _swapFee(token0, amount0In, to);
+            if (amount1In > 0) toSub1 = _swapFee(token1, amount1In, to);
+            uint256 balance0Adjusted = balance0.mul(1000).sub(toSub0);
+            uint256 balance1Adjusted = balance1.mul(1000).sub(toSub1);
             require(
                 balance0Adjusted.mul(balance1Adjusted) >= uint256(_reserve0).mul(_reserve1).mul(1000**2),
                 'Unifarm: K'
             );
         }
 
+        balance0 = IERC20(token0).balanceOf(address(this));
+        balance1 = IERC20(token1).balanceOf(address(this));
         _update(balance0, balance1, _reserve0, _reserve1);
         emit Swap(_msgSender(), amount0In, amount1In, amount0Out, amount1Out, to);
     }
 
-    function _swapFee(address _token, uint256 _amount) internal returns (uint256 fee) {
-        (, bool swapFeesInToken, , uint256 swapFee) = IUnifarmFactory(factory).pairConfigs(address(this));
+    function _swapFee(
+        address _token,
+        uint256 _amount,
+        address to
+    ) private returns (uint256 toSubtract) {
         address payable feeTo = IUnifarmFactory(factory).feeTo();
         bool feeOn = feeTo != address(0);
+        if (!feeOn) return 0;
 
-        if (feeOn) {
-            if (swapFeesInToken) {
-                fee = (_amount.mul(swapFee)) / (1000);
-                _safeTransfer(_token, feeTo, fee);
-                emit FeeDeducted(fee, true, _token);
-            } else _deductETHFee(feeTo, swapFee);
+        (bool lpFeesInToken, bool swapFeesInToken, uint256 lpFee, uint256 swapFee) = IUnifarmFactory(factory)
+            .pairConfigs(address(this));
+
+        uint256 value = !lpFeesInToken ? lpFee : 0;
+        value = !swapFeesInToken ? value.add(swapFee) : value;
+        if (value > 0) {
+            require(msg.value >= value, 'Unifarm: FEE_NOT_PROVIDED');
+            _safeTransferETH(to, swapFee);
+            emit FeeDeducted(swapFee, false, address(0));
+        }
+
+        if (swapFeesInToken) {
+            toSubtract = _amount.mul(swapFee) / (1000);
+            _safeTransfer(_token, feeTo, toSubtract);
+            emit FeeDeducted(toSubtract, true, _token);
+        }
+        toSubtract = _amount.sub(toSubtract);
+
+        if (lpFeesInToken) {
+            toSubtract = toSubtract.mul(lpFee);
         }
     }
 

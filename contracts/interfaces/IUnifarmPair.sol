@@ -23,7 +23,7 @@ interface IUnifarmPair {
     function permit(address owner, address spender, uint value, uint deadline, uint8 v, bytes32 r, bytes32 s) external;
 
     event Mint(address indexed sender, uint amount0, uint amount1);
-    event Burn(address indexed sender, uint amount0, uint amount1, address indexed to);
+    event Burn(address indexed sender, uint amount0, uint amount1, address indexed to, uint256 ethFee);
     event Swap(
         address indexed sender,
         uint amount0In,
@@ -33,6 +33,7 @@ interface IUnifarmPair {
         address indexed to
     );
     event Sync(uint112 reserve0, uint112 reserve1);
+    event FeeDeducted(uint256 fee, bool feeInToken, address feeToken);
 
     function MINIMUM_LIQUIDITY() external pure returns (uint);
     function factory() external view returns (address);
@@ -41,9 +42,10 @@ interface IUnifarmPair {
     function getReserves() external view returns (uint112 reserve0, uint112 reserve1, uint32 blockTimestampLast);
     function price0CumulativeLast() external view returns (uint);
     function price1CumulativeLast() external view returns (uint);
+    function kLast() external view returns (uint);
 
-    function mint(address to) external payable returns (uint liquidity);
-    function burn(address to) external payable returns (uint amount0, uint amount1);
+    function mint(address to) external returns (uint liquidity);
+    function burn(address to) external returns (uint amount0, uint amount1);
     function swap(uint amount0Out, uint amount1Out, address to, bytes calldata data) external payable;
     function skim(address to) external;
     function sync() external;
