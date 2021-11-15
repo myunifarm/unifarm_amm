@@ -79,7 +79,7 @@ contract AMMUtility is Ownable, ReentrancyGuard {
         require(success, 'SWAP_CALL_FAILED');
 
         // Refund any unspent protocol fees to the sender.
-        msg.sender.transfer(address(this).balance);
+        TransferHelper.safeTransferETH(msg.sender, address(this).balance);
 
         boughtAmount = _destToken.balanceOf(address(this)) - boughtAmount;
     }
@@ -89,11 +89,12 @@ contract AMMUtility is Ownable, ReentrancyGuard {
     }
 
     function withdrawToken(IERC20 token, uint256 amount) external onlyOwner {
-        require(token.transfer(msg.sender, amount));
+        // Refund any unspent protocol fees to the sender.
+        TransferHelper.safeTransfer(address(token), msg.sender, amount);
     }
 
     function withdrawETH() external onlyOwner {
         uint256 contractBalance = address(this).balance;
-        msg.sender.transfer(contractBalance);
+        TransferHelper.safeTransferETH(msg.sender, address(this).balance);
     }
 }
