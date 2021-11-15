@@ -79,26 +79,36 @@ describe('UnifarmPair', () => {
     expect(reserves[1]).to.eq(token1WithoutFees)
   })
 
+  it('mintFee', async () => {
+    const token0Amount = BigNumber.from(expandTo18Decimals(1))
+    const token1Amount = BigNumber.from(expandTo18Decimals(4))
+    await token0.transfer(pair.address, token0Amount)
+    await token1.transfer(pair.address, token1Amount)
+
+    await factory.updateLPFeeConfig(token0.address, token1.address, true, 1)
+    const token1WithoutFees = token1Amount.mul(1000 - lpFee).div(1000)
+    const token0WithoutFees = token0Amount.mul(1000 - lpFee).div(1000)
+
+    await expect(pair.mint(wallet.address)).to.emit(pair, 'Transfer')
+  })
+
   it('burn', async () => {
     const token0Amount = BigNumber.from(expandTo18Decimals(1))
     const token1Amount = BigNumber.from(expandTo18Decimals(4))
+
+    await addLiquidity(token0Amount, token1Amount, wallet)
+
     await token0.transfer(pair.address, token0Amount)
     await token1.transfer(pair.address, token1Amount)
 
     const token1WithoutFees = token1Amount.mul(1000 - lpFee).div(1000)
     const token0WithoutFees = token0Amount.mul(1000 - lpFee).div(1000)
 
-    //deduct fees and min liquidity
-    const expectedLiquidity = BigNumber.from(expandTo18Decimals(2)).sub(expandTo18Decimals(lpFee * 2).div(1000))
-
     await expect(pair.mint(wallet.address))
       .to.emit(pair, 'Transfer')
-      .withArgs(AddressZero, AddressZero, MINIMUM_LIQUIDITY)
-      .to.emit(pair, 'Sync')
-      .withArgs(token0WithoutFees, token1WithoutFees)
-      .to.emit(pair, 'Mint')
-      .withArgs(wallet.address, token0WithoutFees, token1WithoutFees)
-    await expect(pair.burn(wallet.address)).to.emit(pair, 'Burn')
+      .withArgs(AddressZero, wallet.address, '1994000000000000000')
+    await pair.transfer(pair.address, '1994000000000000000')
+    await expect(pair.connect(wallet).burn(wallet.address)).to.emit(pair, 'Burn')
   })
 
   async function addLiquidity(token0Amount, token1Amount, signer) {

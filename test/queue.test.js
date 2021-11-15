@@ -4,7 +4,7 @@ const { solidity } = waffle
 
 use(solidity)
 
-const { encodeParameters, both } = require('./utils/Ethereum')
+const { encodeParameters } = require('./utils/Ethereum')
 const { expandTo18Decimals } = require('./utils/utilities')
 
 async function enfranchise(ufarm, actor, amount) {
@@ -60,12 +60,43 @@ describe('GovernorBravo#queue/1', () => {
       const calldatas = [encodeParameters(['address'], [root.address]), encodeParameters(['address'], [root.address])]
 
       await ufarm.delegate(a1.address)
-      await gov.connect(a1).propose(targets, values, signatures, calldatas, 'do nothing')
+
+      expect(await gov.versionRecipient()).to.equal('1')
+
+      await expect(gov.connect(a1).propose(targets, values, signatures, calldatas, 'do nothing')).to.emit(
+        gov,
+        'ProposalCreated'
+      )
+
       proposalId = await gov.latestProposalIds(a1.address)
 
       await ethers.provider.send('evm_mine')
 
-      await gov.connect(a1).castVote(proposalId, 1)
+      await expect(gov.connect(a1).castVote(proposalId, 1)).to.emit(gov, 'VoteCast')
+
+      await expect(gov.connect(a2).castVoteWithReason(proposalId, 1, '')).to.emit(gov, 'VoteCast')
+
+      await expect(gov.connect(root)._setVotingDelay(17290)).to.emit(gov, 'VotingDelaySet')
+
+      await expect(gov.connect(root)._setVotingPeriod(5770)).to.emit(gov, 'VotingPeriodSet')
+
+      await expect(gov.connect(root)._setProposalThreshold('60000000000000000000000')).to.emit(
+        gov,
+        'ProposalThresholdSet'
+      )
+
+      await expect(gov.connect(root)._setPendingAdmin(a1.address)).to.emit(gov, 'NewPendingAdmin')
+
+      await expect(gov.connect(a1)._acceptAdmin())
+        .to.emit(gov, 'NewAdmin')
+        .to.emit(gov, 'NewPendingAdmin')
+
+      await expect(gov.connect(a1).cancel(proposalId))
+        .to.emit(gov, 'ProposalCanceled')
+        .to.emit(gov, 'ProposalCanceled')
+
+      await gov.getActions(proposalId)
+
       const currentBlock = (await ethers.provider.getBlock()).timestamp
       await ethers.provider.send('evm_mine', [currentBlock + 4000])
 
@@ -73,8 +104,7 @@ describe('GovernorBravo#queue/1', () => {
         'GovernorBravo::queue: proposal can only be queued if it is succeeded'
       )
 
-      await expect(gov.execute(proposalId)).to.emit(gov, 'ProposalExecuted')
-      await expect(gov.cancel(proposalId)).to.emit(gov, 'ProposalCanceled')
+      await ethers.provider.send('evm_mine')
     })
   })
 })

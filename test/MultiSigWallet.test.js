@@ -40,13 +40,15 @@ describe('MultiSigWallet', () => {
     // Add owner
     const transactionId0 = 0 //add Owner
     const transactionId1 = 1 //change requirement
+    const transactionId2 = 2 //after revocation
+
     let ABI = ['function addOwner(address to)']
     let iface = new ethers.utils.Interface(ABI)
-    const addOwnerData = iface.encodeFunctionData('addOwner', [accounts3.address])
+    let addOwnerData = iface.encodeFunctionData('addOwner', [accounts3.address])
 
     await expect(multisigInstance.connect(accounts0).submitTransaction(multisigInstance.address, 0, addOwnerData))
-      .to.emit(multisigInstance, 'Submission')
-      .withArgs(transactionId0)
+      .to.emit(multisigInstance, 'Confirmation')
+      .withArgs(accounts0.address,transactionId0)
 
     // There is one pending transaction
     const excludePending = false
@@ -64,12 +66,23 @@ describe('MultiSigWallet', () => {
     await expect(
       multisigInstance.connect(accounts0).submitTransaction(multisigInstance.address, 0, updateRequirementData)
     )
-      .to.emit(multisigInstance, 'Submission')
-      .withArgs(transactionId1)
+      .to.emit(multisigInstance, 'Confirmation')
+      .withArgs(accounts0.address, transactionId1)
+
+
+    // Submit successfully
+    await expect(
+      multisigInstance.connect(accounts0).submitTransaction(multisigInstance.address, 0, updateRequirementData)
+    )
+      .to.emit(multisigInstance, 'Confirmation')
+      .withArgs(accounts0.address, transactionId2)
+
+    await expect(multisigInstance.connect(accounts0).revokeConfirmation(transactionId2))
+      .to.emit(multisigInstance, 'Revocation')
+      .withArgs(accounts0.address, transactionId2)
 
     // Confirm change requirement transaction
     await multisigInstance.connect(accounts1).confirmTransaction(transactionId1)
-
     expect(await multisigInstance.required()).to.equal(newRequired)
     expect((await multisigInstance.getTransactionIds(0, 1, excludePending, includeExecuted))[0]).to.equal(
       transactionId1
@@ -88,16 +101,37 @@ describe('MultiSigWallet', () => {
       .to.emit(multisigInstance, 'Execution')
       .withArgs(transactionId0)
 
-    await multisigInstance.connect(accounts1).getConfirmationCount(transactionId1)
-    await multisigInstance.connect(accounts1).getTransactionCount(false, true)
-    await multisigInstance.connect(accounts1).getOwners()
-    await multisigInstance.connect(accounts1).getConfirmations(transactionId1) //.to.equal(requiredConfirmations))
-    await multisigInstance
-      .connect(accounts1)
-      .getTransactionIds(accounts0.address, multisigInstance.address, false, true)
-    await multisigInstance.connect(accounts1).removeOwner(accounts2.address)
-    await multisigInstance.connect(accounts1).addOwner(accounts2.address)
-    await multisigInstance.connect(accounts1).replaceOwner(accounts2.address, accounts3.address)
-    await multisigInstance.connect(accounts1).changeRequirement(3)
+    expect(await multisigInstance.connect(accounts1).getConfirmationCount(transactionId1)).to.equal(2)
+    expect(await multisigInstance.connect(accounts1).getTransactionCount(false, true)).to.equal(2)
+    expect(await multisigInstance.isConfirmed(1)).to.equal(true)
+    // console.log([accounts0.address, accounts1.address, accounts2.address, accounts3.address])
+    expect(await multisigInstance.getOwners()).to.have.all.members([accounts0.address, accounts1.address, accounts2.address, accounts3.address])
+    expect(await multisigInstance.connect(accounts1).getConfirmations(transactionId1)).to.have.all.members([accounts0.address, accounts1.address])
+    
+    ABI = ['function replaceOwner(address owner, address newOwner)']
+    iface = new ethers.utils.Interface(ABI)
+    const replaceOwnerData = iface.encodeFunctionData('replaceOwner', [accounts0.address, accounts4.address])
+    await expect(multisigInstance.connect(accounts0).submitTransaction(multisigInstance.address, 0, replaceOwnerData))
+      .to.emit(multisigInstance, 'OwnerRemoval')
+      .withArgs(accounts0.address)
+      .to.emit(multisigInstance, 'OwnerAddition')
+      .withArgs(accounts4.address)
+
+    ABI = ['function addOwner(address to)']
+    iface = new ethers.utils.Interface(ABI)
+    addOwnerData = iface.encodeFunctionData('addOwner', [accounts2.address])
+    await expect(multisigInstance.connect(accounts2).submitTransaction(multisigInstance.address, 0, addOwnerData))
+      .to.emit(multisigInstance, 'Confirmation')
+      .withArgs(accounts2.address, 4)
+
+    ABI = ['function removeOwner(address owner)']
+    iface = new ethers.utils.Interface(ABI)
+    const removeOwnerData = iface.encodeFunctionData('removeOwner', [accounts2.address])
+
+    await expect(multisigInstance.connect(accounts2).submitTransaction(multisigInstance.address, 0, removeOwnerData))
+      .to.emit(multisigInstance, 'OwnerRemoval')
+      .withArgs(accounts2.address)
+
+    expect(await multisigInstance.getTransactionCount(false, true)).to.equal(4)
   })
 })

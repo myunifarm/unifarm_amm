@@ -7,40 +7,44 @@
 // use(solidity)
 // const { MaxUint256 } = ethers.constants
 
-// import { solidity, MockProvider, createFixtureLoader, deployContract } from 'ethereum-waffle'
-// import IUniswapV2Pair from '@uniswap/v2-core/build/IUniswapV2Pair.json'
+// const { MockProvider, loadFixture, createFixtureLoader, deployContract } = require('ethereum-waffle')
+// const IUniswapV2Pair  = require('../artifacts/contracts/UnifarmPair.sol/UnifarmPair.json')
 
-// import { v2Fixture } from './utils/fixtures'
-// import { expandTo18Decimals, getApprovalDigest, MINIMUM_LIQUIDITY } from './utils/utilities'
+// const {factoryFixture, pairFixture} = require('./utils/fixtures')
+// const { expandTo18Decimals, MINIMUM_LIQUIDITY } = require('./utils/utilities') 
 
-// import DeflatingERC20 from '../build/DeflatingERC20.json'
+// const DeflatingERC20 = require('../build/UniswapV2ERC20.json') 
 
 // const overrides = {
 //   gasLimit: 9999999
 // }
 
-// describe('UniswapV2Router02', () => {
-//   let wallet
-//   let token
+// const TOTAL_SUPPLY = 1000000
 
-//   beforeEach(async () => {
-//     ;[wallet] = await ethers.getSigners()
-
-//     const Token = await ethers.getContractFactory('ERC20')
-//     token0 = await Token.deploy(TOTAL_SUPPLY)
-//     token1 = await Token.deploy(TOTAL_SUPPLY)
-//     roouter = await Router.deploy()
-//   })
+// describe('UniswapV2Router02', async () => {
+//     let wallet, other, trustedForwarder
 
 //   let token0
 //   let token1
 //   let router
-//   beforeEach(async function() {
-//     const fixture = await loadFixture(v2Fixture)
+
+//   beforeEach(async () => {
+//     ;[wallet, other, trustedForwarder] = await ethers.getSigners()
+//     // const Token = await ethers.getContractFactory('ERC20')
+//     // token0 = await Token.deploy(TOTAL_SUPPLY)
+//     // token1 = await Token.deploy(TOTAL_SUPPLY)
+    
+//     const provider = new MockProvider();
+//     // const v2Fixture = createFixtureLoader(provider, [wallet])
+
+//     const fixture = await loadFixture(pairFixture)
+//     console.log(token0)
 //     token0 = fixture.token0
-//     token1 = fixture.token1
-//     router = fixture.router02
+//     console.log(token0)
+//     token1 = fixture.token1 
+//     router = fixture.router
 //   })
+
 
 //   it('quote', async () => {
 //     expect(await router.quote(bigNumberify(1), bigNumberify(100), bigNumberify(200))).to.eq(bigNumberify(2))
@@ -127,8 +131,8 @@
 //   })
 // })
 
-// describe('fee-on-transfer tokens', () => {
-//  const [wallet] = provider.getWallets()
+// describe('fee-on-transfer tokens', async () => {
+//  const [wallet] = await ethers.getSigners()
 //   const loadFixture = createFixtureLoader(provider, [wallet])
 
 //   let DTT
@@ -136,7 +140,7 @@
 //   let router
 //   let pair
 //   beforeEach(async function() {
-//     const fixture = await loadFixture(v2Fixture)
+//     const fixture = await loadFixture(factoryFixture)
 
 //     WETH = fixture.WETH
 //     router = fixture.router02
@@ -153,7 +157,7 @@
 //     expect(await provider.getBalance(router.address)).to.eq(0)
 //   })
 
-//   async function addLiquidity(DTTAmount: BigNumber, WETHAmount: BigNumber) {
+//   async function addLiquidity(DTTAmount, WETHAmount) {
 //     await DTT.approve(router.address, MaxUint256)
 //     await router.addLiquidityETH(DTT.address, DTTAmount, DTTAmount, WETHAmount, wallet.address, MaxUint256, {
 //       ...overrides,
@@ -309,23 +313,27 @@
 //   })
 // })
 
-// describe('fee-on-transfer tokens: reloaded', () => {
-//   const provider = new MockProvider({
-//     hardfork: 'istanbul',
-//     mnemonic: 'horn horn horn horn horn horn horn horn horn horn horn horn',
-//     gasLimit: 9999999
-//   })
-//   const [wallet] = provider.getWallets()
-//   const loadFixture = createFixtureLoader(provider, [wallet])
+// describe('fee-on-transfer tokens: reloaded', async () => {
+//   // const provider = new MockProvider({
+//   //   hardfork: 'istanbul',
+//   //   mnemonic: '',
+//   //   gasLimit: 9999999
+//   // })
+
+  
+//   const [wallet] = await ethers.getSigners()
+//   // const loadFixture = createFixtureLoader(provider, [wallet])
 
 //   let DTT
 //   let DTT2
 //   let router
+
 //   beforeEach(async function() {
-//     const fixture = await loadFixture(v2Fixture)
-
-//     router = fixture.router02
-
+//     // const v2Fixture = createFixtureLoader(provider, [wallet])
+//     const fixture = await loadFixture(pairFixture)
+//     const provider = new MockProvider();
+//     router = fixture.router
+//     console.log(router.address)
 //     DTT = await deployContract(wallet, DeflatingERC20, [expandTo18Decimals(10000)])
 //     DTT2 = await deployContract(wallet, DeflatingERC20, [expandTo18Decimals(10000)])
 
@@ -338,7 +346,7 @@
 //     expect(await provider.getBalance(router.address)).to.eq(0)
 //   })
 
-//   async function addLiquidity(DTTAmount: BigNumber, DTT2Amount: BigNumber) {
+//   async function addLiquidity(DTTAmount, DTT2Amount) {
 //     await DTT.approve(router.address, MaxUint256)
 //     await DTT2.approve(router.address, MaxUint256)
 //     await router.addLiquidity(
