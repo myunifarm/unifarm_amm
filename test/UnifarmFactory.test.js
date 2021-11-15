@@ -37,12 +37,14 @@ describe('UnifarmFactory', () => {
     expect(await factory.allPairsLength()).to.equal(0)
   })
 
+  it('version', async () => {
+    expect(await factory.versionRecipient()).to.equal('1')
+  })
+
   async function createPair(tokens) {
     const bytecode = UnifarmPair.bytecode
     const create2Address = getCreate2Address(factory.address, tokens[0], tokens[1], bytecode)
-    await expect(factory.createPair(...tokens))
-      .to.emit(factory, 'PairCreated')
-      .withArgs(TEST_ADDRESSES[0], TEST_ADDRESSES[1], create2Address, lpFeesInToken, swapFeesInToken, lpFee, swapFee)
+    await expect(factory.createPair(...tokens)).to.emit(factory, 'PairCreated')
 
     await expect(factory.createPair(...tokens)).to.be.reverted // Unifarm: PAIR_EXISTS
     await expect(factory.createPair(...tokens.slice().reverse())).to.be.reverted // Unifarm: PAIR_EXISTS
@@ -79,21 +81,25 @@ describe('UnifarmFactory', () => {
     expect(await factory.feeTo()).to.eq(wallet.address)
   })
 
-  // it('updateLPFeeConfig', async () => {
-  //   await expect(
-  //     factory.connect(other).updateLPFeeConfig(wallet.address, false, lpFee, lpFeesInToken)
-  //   ).to.be.revertedWith('Ownable: caller is not the owner')
-  //   await createPair(TEST_ADDRESSES)
-  //   await factory.updateLPFeeConfig(factory.getPair(...TEST_ADDRESSES), false, lpFee, lpFeesInToken)
-  //   expect(await factory.feeTo()).to.eq(wallet.address)
-  // })
+  it('updateLPFeeConfig', async () => {
+    await expect(
+      factory.connect(other).updateLPFeeConfig(TEST_ADDRESSES[0], TEST_ADDRESSES[1], lpFeesInToken, lpFee)
+    ).to.be.revertedWith('Ownable: caller is not the owner')
+    await createPair(TEST_ADDRESSES)
 
-  // it('updateSwapFeeConfig', async () => {
-  //   await expect(factory.connect(other).updateSwapFeeConfig(wallet.address, lpFeesInToken, lpFee)).to.be.revertedWith(
-  //     'Ownable: caller is not the owner'
-  //   )
-  //   await createPair(TEST_ADDRESSES)
-  //   await factory.updateSwapFeeConfig(factory.getPair(...TEST_ADDRESSES), lpFeesInToken, lpFee)
-  //   expect(await factory.feeTo()).to.eq(wallet.address)
-  // })
+    await factory.updateLPFeeConfig(TEST_ADDRESSES[0], TEST_ADDRESSES[1], lpFeesInToken, lpFee)
+    expect(await factory.feeTo()).to.eq(wallet.address)
+
+    await factory.updateLPFeeConfig(TEST_ADDRESSES[0], TEST_ADDRESSES[1], false, lpFee)
+    expect(await factory.feeTo()).to.eq(wallet.address)
+  })
+
+  it('updateSwapFeeConfig', async () => {
+    await expect(
+      factory.connect(other).updateSwapFeeConfig(TEST_ADDRESSES[0], TEST_ADDRESSES[1], lpFeesInToken, lpFee)
+    ).to.be.revertedWith('Ownable: caller is not the owner')
+    await createPair(TEST_ADDRESSES)
+    await factory.updateSwapFeeConfig(TEST_ADDRESSES[0], TEST_ADDRESSES[1], lpFeesInToken, lpFee)
+    expect(await factory.feeTo()).to.eq(wallet.address)
+  })
 })

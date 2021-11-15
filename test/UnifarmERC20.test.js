@@ -31,6 +31,7 @@ describe('UnifarmERC20', function() {
     expect(await token.decimals()).to.equal(18)
     expect(await token.totalSupply()).to.be.equal(ethers.BigNumber.from(TOTAL_SUPPLY))
     expect(await token.balanceOf(wallet.address)).to.equal(ethers.BigNumber.from(TOTAL_SUPPLY))
+    expect(await token.versionRecipient()).to.equal('1')
     expect(await token.DOMAIN_SEPARATOR()).to.equal(
       keccak256(
         defaultAbiCoder.encode(
@@ -68,7 +69,7 @@ describe('UnifarmERC20', function() {
   })
 
   it('transfer:fail', async () => {
-    await expect(token.transfer(other.address, TOTAL_SUPPLY.add(1))).to.be.reverted // ds-math-sub-underflow
+    await expect(token.transfer(other.address, TOTAL_SUPPLY.add(1))).to.be.reverted
     await expect(token.connect(other).transfer(wallet.address, 1)).to.be.reverted // ds-math-sub-underflow
   })
 
@@ -119,7 +120,7 @@ describe('UnifarmERC20', function() {
   })
 
   it('decreaseAllowance', async () => {
-    await token.increaseAllowance(wallet.address, TEST_AMOUNT)
+    await expect(token.increaseAllowance(wallet.address, TEST_AMOUNT)).to.emit(token, 'Approval')
     await expect(token.decreaseAllowance(wallet.address, TEST_AMOUNT)).to.emit(token, 'Approval') // ds-math-sub-underflow
   })
 })

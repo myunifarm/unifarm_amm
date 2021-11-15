@@ -1,10 +1,13 @@
-pragma solidity =0.5.16;
+pragma solidity >=0.5.16;
 pragma experimental ABIEncoderV2;
 
 import './GovernorBravoInterfaces.sol';
 import '../BaseRelayRecipient.sol';
+import './Proposals.sol';
+import '../interfaces/IERC20.sol';
+import '../libraries/SafeERC20.sol';
 
-contract GovernorBravoDelegate is GovernorBravoDelegateStorageV1, GovernorBravoEvents, BaseRelayRecipient {
+contract GovernorBravoDelegate is Proposals, GovernorBravoDelegateStorageV1, GovernorBravoEvents {
     /// @notice The name of this contract
     string public constant name = 'Unifarm Governor Bravo';
 
@@ -38,6 +41,10 @@ contract GovernorBravoDelegate is GovernorBravoDelegateStorageV1, GovernorBravoE
 
     /// @notice The EIP-712 typehash for the ballot struct used by the contract
     bytes32 public constant BALLOT_TYPEHASH = keccak256('Ballot(uint256 proposalId,uint8 support)');
+
+    event SuccessClaim(uint256 proposalId, address reciever, uint256 tokenAmount);
+
+    event DefeatRefund(uint256 proposalId, address proposer, uint256 refundAmount);
 
     constructor() public {
         admin = msg.sender;
@@ -105,12 +112,14 @@ contract GovernorBravoDelegate is GovernorBravoDelegateStorageV1, GovernorBravoE
      * @return Proposal id of new proposal
      */
     function propose(
+        address _tokenAddress,
+        uint256 _amount,
         address[] memory targets,
         uint256[] memory values,
         string[] memory signatures,
         bytes[] memory calldatas,
         string memory description
-    ) public returns (uint256) {
+    ) public isAllowed(_tokenAddress) returns (uint256) {
         // Reject proposals before initiating as Governor
         require(initialProposalId != 0, 'GovernorBravo::propose: Governor Bravo not active');
         require(
@@ -126,17 +135,19 @@ contract GovernorBravoDelegate is GovernorBravoDelegateStorageV1, GovernorBravoE
         require(targets.length != 0, 'GovernorBravo::propose: must provide actions');
         require(targets.length <= proposalMaxOperations, 'GovernorBravo::propose: too many actions');
 
-        uint256 latestProposalId = latestProposalIds[_msgSender()];
-        if (latestProposalId != 0) {
-            ProposalState proposersLatestProposalState = state(latestProposalId);
-            require(
-                proposersLatestProposalState != ProposalState.Active,
-                'GovernorBravo::propose: one live proposal per proposer, found an already active proposal'
-            );
-            require(
-                proposersLatestProposalState != ProposalState.Pending,
-                'GovernorBravo::propose: one live proposal per proposer, found an already pending proposal'
-            );
+        {
+            uint256 latestProposalId = latestProposalIds[_msgSender()];
+            if (latestProposalId != 0) {
+                ProposalState proposersLatestProposalState = state(latestProposalId);
+                require(
+                    proposersLatestProposalState != ProposalState.Active,
+                    'GovernorBravo::propose: one live proposal per proposer, found an already active proposal'
+                );
+                require(
+                    proposersLatestProposalState != ProposalState.Pending,
+                    'GovernorBravo::propose: one live proposal per proposer, found an already pending proposal'
+                );
+            }
         }
 
         uint256 startBlock = add256(block.number, votingDelay);
@@ -145,6 +156,8 @@ contract GovernorBravoDelegate is GovernorBravoDelegateStorageV1, GovernorBravoE
         proposalCount = add256(proposalCount, 1);
         Proposal memory newProposal = Proposal({
             id: proposalCount,
+            token: _tokenAddress,
+            amount: _amount,
             proposer: _msgSender(),
             eta: 0,
             targets: targets,
@@ -162,6 +175,10 @@ contract GovernorBravoDelegate is GovernorBravoDelegateStorageV1, GovernorBravoE
 
         proposals[newProposal.id] = newProposal;
         latestProposalIds[newProposal.proposer] = newProposal.id;
+
+        // transfer token
+        IERC20 token = IERC20(_tokenAddress);
+        token.transferFrom(_msgSender(), address(this), _amount);
 
         emit ProposalCreated(
             newProposal.id,
@@ -220,10 +237,12 @@ contract GovernorBravoDelegate is GovernorBravoDelegateStorageV1, GovernorBravoE
      * @param proposalId The id of the proposal to execute
      */
     function execute(uint256 proposalId) external payable {
+        // console.log(uint256(state(proposalId)));
         require(
             state(proposalId) == ProposalState.Queued,
             'GovernorBravo::execute: proposal can only be executed if it is queued'
         );
+
         Proposal storage proposal = proposals[proposalId];
         proposal.executed = true;
         for (uint256 i = 0; i < proposal.targets.length; i++) {
@@ -330,7 +349,14 @@ contract GovernorBravoDelegate is GovernorBravoDelegateStorageV1, GovernorBravoE
      * @param proposalId The id of the proposal to vote on
      * @param support The support value for the vote. 0=against, 1=for, 2=abstain
      */
-    function castVote(uint256 proposalId, uint8 support) external {
+    function castVote(
+        uint256 proposalId,
+        uint8 support,
+        uint256 _token
+    ) external {
+        if (support == 1) {
+            _updateForVotes(proposalId, _token);
+        }
         emit VoteCast(_msgSender(), proposalId, support, castVoteInternal(_msgSender(), proposalId, support), '');
     }
 
@@ -343,8 +369,12 @@ contract GovernorBravoDelegate is GovernorBravoDelegateStorageV1, GovernorBravoE
     function castVoteWithReason(
         uint256 proposalId,
         uint8 support,
-        string calldata reason
+        string calldata reason,
+        uint256 _token
     ) external {
+        if (support == 1) {
+            _updateForVotes(proposalId, _token);
+        }
         emit VoteCast(_msgSender(), proposalId, support, castVoteInternal(_msgSender(), proposalId, support), reason);
     }
 
@@ -408,7 +438,7 @@ contract GovernorBravoDelegate is GovernorBravoDelegateStorageV1, GovernorBravoE
      * @param newVotingDelay new voting delay, in blocks
      */
     function _setVotingDelay(uint256 newVotingDelay) external {
-        require(_msgSender() == admin, 'GovernorBravo::_setVotingDelay: admin only');
+        require(msg.sender == admin, 'GovernorBravo::_setVotingDelay: admin only');
         require(
             newVotingDelay >= MIN_VOTING_DELAY && newVotingDelay <= MAX_VOTING_DELAY,
             'GovernorBravo::_setVotingDelay: invalid voting delay'
@@ -424,7 +454,7 @@ contract GovernorBravoDelegate is GovernorBravoDelegateStorageV1, GovernorBravoE
      * @param newVotingPeriod new voting period, in blocks
      */
     function _setVotingPeriod(uint256 newVotingPeriod) external {
-        require(_msgSender() == admin, 'GovernorBravo::_setVotingPeriod: admin only');
+        require(msg.sender == admin, 'GovernorBravo::_setVotingPeriod: admin only');
         require(
             newVotingPeriod >= MIN_VOTING_PERIOD && newVotingPeriod <= MAX_VOTING_PERIOD,
             'GovernorBravo::_setVotingPeriod: invalid voting period'
@@ -441,7 +471,7 @@ contract GovernorBravoDelegate is GovernorBravoDelegateStorageV1, GovernorBravoE
      * @param newProposalThreshold new proposal threshold
      */
     function _setProposalThreshold(uint256 newProposalThreshold) external {
-        require(_msgSender() == admin, 'GovernorBravo::_setProposalThreshold: admin only');
+        require(msg.sender == admin, 'GovernorBravo::_setProposalThreshold: admin only');
         require(
             newProposalThreshold >= MIN_PROPOSAL_THRESHOLD && newProposalThreshold <= MAX_PROPOSAL_THRESHOLD,
             'GovernorBravo::_setProposalThreshold: invalid proposal threshold'
@@ -450,6 +480,28 @@ contract GovernorBravoDelegate is GovernorBravoDelegateStorageV1, GovernorBravoE
         proposalThreshold = newProposalThreshold;
 
         emit ProposalThresholdSet(oldProposalThreshold, proposalThreshold);
+    }
+
+    /**
+     * @notice claim rewards
+     */
+    function claimReward(uint256 _proposalId) external {
+        IERC20 token = IERC20(proposals[_proposalId].token);
+
+        if (state(_proposalId) == ProposalState.Succeeded) {
+            uint256 value = votes[_msgSender()][_proposalId];
+            uint256 share = (value / proposals[_proposalId].forVotes) * proposals[_proposalId].amount;
+            SafeERC20.safeTransfer(token, _msgSender(), share);
+            votes[_msgSender()][_proposalId] = 0;
+            emit SuccessClaim(_proposalId, _msgSender(), share);
+        } else if (state(_proposalId) == ProposalState.Defeated) {
+            address proposer = proposals[_proposalId].proposer;
+            require(_msgSender() == proposer, 'Caller is not proposer');
+            uint256 amount = proposals[_proposalId].amount;
+            SafeERC20.safeTransfer(token, _msgSender(), amount);
+            proposals[_proposalId].amount = 0;
+            emit DefeatRefund(_proposalId, proposer, amount);
+        }
     }
 
     /**
@@ -471,7 +523,7 @@ contract GovernorBravoDelegate is GovernorBravoDelegateStorageV1, GovernorBravoE
      */
     function _setPendingAdmin(address newPendingAdmin) external {
         // Check caller = admin
-        require(_msgSender() == admin, 'GovernorBravo:_setPendingAdmin: admin only');
+        require(msg.sender == admin, 'GovernorBravo:_setPendingAdmin: admin only');
 
         // Save current value, if any, for inclusion in log
         address oldPendingAdmin = pendingAdmin;
