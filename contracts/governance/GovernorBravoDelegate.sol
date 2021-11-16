@@ -3,11 +3,9 @@ pragma experimental ABIEncoderV2;
 
 import './GovernorBravoInterfaces.sol';
 import '../BaseRelayRecipient.sol';
-import './Proposals.sol';
-import '../interfaces/IERC20.sol';
-import '../libraries/SafeERC20.sol';
+import '../libraries/TransferHelper.sol';
 
-contract GovernorBravoDelegate is Proposals, GovernorBravoDelegateStorageV1, GovernorBravoEvents {
+contract GovernorBravoDelegate is GovernorBravoDelegateStorageV1, GovernorBravoEvents, BaseRelayRecipient {
     /// @notice The name of this contract
     string public constant name = 'Unifarm Governor Bravo';
 
@@ -42,9 +40,10 @@ contract GovernorBravoDelegate is Proposals, GovernorBravoDelegateStorageV1, Gov
     /// @notice The EIP-712 typehash for the ballot struct used by the contract
     bytes32 public constant BALLOT_TYPEHASH = keccak256('Ballot(uint256 proposalId,uint8 support)');
 
-    event SuccessClaim(uint256 proposalId, address reciever, uint256 tokenAmount);
-
-    event DefeatRefund(uint256 proposalId, address proposer, uint256 refundAmount);
+    modifier isAllowed(address _tokenAddress) {
+        require(allowedTokens[_tokenAddress], 'GovernorBravo::isAllowed: token not whitelisted');
+        _;
+    }
 
     constructor() public {
         admin = msg.sender;
@@ -94,6 +93,16 @@ contract GovernorBravoDelegate is Proposals, GovernorBravoDelegateStorageV1, Gov
     }
 
     /*
+     * This function is used to add permission for tokens to create a
+     * proposal for.
+     */
+    function updateTokenPermission(address _token, bool _tokenPermit) external {
+        require(_msgSender() == admin, 'GovernorBravo::updateTokenPermission: admin only');
+        allowedTokens[_token] = _tokenPermit;
+        emit TokenPermitted(_token, _tokenPermit);
+    }
+
+    /*
      * Override this function.
      * This version is to keep track of BaseRelayRecipient you are using
      * in your contract.
@@ -104,6 +113,8 @@ contract GovernorBravoDelegate is Proposals, GovernorBravoDelegateStorageV1, Gov
 
     /**
      * @notice Function used to propose a new proposal. Sender must have delegates above the proposal threshold
+     * @param tokenAddress Token addresses for which proposal is created
+     * @param amount Number of tokens to be distributed to voters who helped in proposal success
      * @param targets Target addresses for proposal calls
      * @param values Eth values for proposal calls
      * @param signatures Function signatures for proposal calls
@@ -112,14 +123,14 @@ contract GovernorBravoDelegate is Proposals, GovernorBravoDelegateStorageV1, Gov
      * @return Proposal id of new proposal
      */
     function propose(
-        address _tokenAddress,
-        uint256 _amount,
+        address tokenAddress,
+        uint256 amount,
         address[] memory targets,
         uint256[] memory values,
         string[] memory signatures,
         bytes[] memory calldatas,
         string memory description
-    ) public isAllowed(_tokenAddress) returns (uint256) {
+    ) public isAllowed(tokenAddress) returns (uint256) {
         // Reject proposals before initiating as Governor
         require(initialProposalId != 0, 'GovernorBravo::propose: Governor Bravo not active');
         require(
@@ -156,8 +167,8 @@ contract GovernorBravoDelegate is Proposals, GovernorBravoDelegateStorageV1, Gov
         proposalCount = add256(proposalCount, 1);
         Proposal memory newProposal = Proposal({
             id: proposalCount,
-            token: _tokenAddress,
-            amount: _amount,
+            token: tokenAddress,
+            amount: amount,
             proposer: _msgSender(),
             eta: 0,
             targets: targets,
@@ -177,8 +188,9 @@ contract GovernorBravoDelegate is Proposals, GovernorBravoDelegateStorageV1, Gov
         latestProposalIds[newProposal.proposer] = newProposal.id;
 
         // transfer token
-        IERC20 token = IERC20(_tokenAddress);
-        token.transferFrom(_msgSender(), address(this), _amount);
+        if (tokenAddress != address(0) && amount != 0) {
+            TransferHelper.safeTransferFrom(tokenAddress, _msgSender(), address(this), amount);
+        }
 
         emit ProposalCreated(
             newProposal.id,
@@ -237,7 +249,6 @@ contract GovernorBravoDelegate is Proposals, GovernorBravoDelegateStorageV1, Gov
      * @param proposalId The id of the proposal to execute
      */
     function execute(uint256 proposalId) external payable {
-        // console.log(uint256(state(proposalId)));
         require(
             state(proposalId) == ProposalState.Queued,
             'GovernorBravo::execute: proposal can only be executed if it is queued'
@@ -271,6 +282,7 @@ contract GovernorBravoDelegate is Proposals, GovernorBravoDelegateStorageV1, Gov
             'GovernorBravo::cancel: proposer above threshold'
         );
 
+        _refund(proposalId);
         proposal.canceled = true;
         for (uint256 i = 0; i < proposal.targets.length; i++) {
             timelock.cancelTransaction(
@@ -349,14 +361,7 @@ contract GovernorBravoDelegate is Proposals, GovernorBravoDelegateStorageV1, Gov
      * @param proposalId The id of the proposal to vote on
      * @param support The support value for the vote. 0=against, 1=for, 2=abstain
      */
-    function castVote(
-        uint256 proposalId,
-        uint8 support,
-        uint256 _token
-    ) external {
-        if (support == 1) {
-            _updateForVotes(proposalId, _token);
-        }
+    function castVote(uint256 proposalId, uint8 support) external {
         emit VoteCast(_msgSender(), proposalId, support, castVoteInternal(_msgSender(), proposalId, support), '');
     }
 
@@ -369,12 +374,8 @@ contract GovernorBravoDelegate is Proposals, GovernorBravoDelegateStorageV1, Gov
     function castVoteWithReason(
         uint256 proposalId,
         uint8 support,
-        string calldata reason,
-        uint256 _token
+        string calldata reason
     ) external {
-        if (support == 1) {
-            _updateForVotes(proposalId, _token);
-        }
         emit VoteCast(_msgSender(), proposalId, support, castVoteInternal(_msgSender(), proposalId, support), reason);
     }
 
@@ -485,23 +486,49 @@ contract GovernorBravoDelegate is Proposals, GovernorBravoDelegateStorageV1, Gov
     /**
      * @notice claim rewards
      */
-    function claimReward(uint256 _proposalId) external {
-        IERC20 token = IERC20(proposals[_proposalId].token);
+    function claimReward(uint256 proposalId) external {
+        Proposal storage proposal = proposals[proposalId];
+        Receipt storage receipt = proposal.receipts[_msgSender()];
 
-        if (state(_proposalId) == ProposalState.Succeeded) {
-            uint256 value = votes[_msgSender()][_proposalId];
-            uint256 share = (value / proposals[_proposalId].forVotes) * proposals[_proposalId].amount;
-            SafeERC20.safeTransfer(token, _msgSender(), share);
-            votes[_msgSender()][_proposalId] = 0;
-            emit SuccessClaim(_proposalId, _msgSender(), share);
-        } else if (state(_proposalId) == ProposalState.Defeated) {
-            address proposer = proposals[_proposalId].proposer;
-            require(_msgSender() == proposer, 'Caller is not proposer');
-            uint256 amount = proposals[_proposalId].amount;
-            SafeERC20.safeTransfer(token, _msgSender(), amount);
-            proposals[_proposalId].amount = 0;
-            emit DefeatRefund(_proposalId, proposer, amount);
+        if (state(proposalId) == ProposalState.Succeeded) {
+            require(canClaimRewards(_msgSender(), proposalId), 'GovernorBravo::claimReward: cannot claim');
+            receipt.rewardsClaimed = true;
+
+            // proposal.forVotes > 0 always
+            uint256 share = mul256((receipt.votes / (proposal.forVotes)), proposal.amount);
+            TransferHelper.safeTransfer(proposal.token, _msgSender(), share);
+
+            emit SuccessClaim(proposalId, _msgSender(), share);
+        } else if (state(proposalId) == ProposalState.Defeated) {
+            _refund(proposalId);
         }
+    }
+
+    function canClaimRewards(address _user, uint256 _proposalId) public view returns (bool) {
+        Proposal storage proposal = proposals[_proposalId];
+        Receipt storage receipt = proposal.receipts[_user];
+
+        if (proposal.token == address(0) || proposal.amount == 0) return false;
+        if (receipt.hasVoted && receipt.support == 1 && receipt.votes > 0 && !receipt.rewardsClaimed) return true;
+        return false;
+    }
+
+    /**
+     * @notice Initiate the GovernorBravo contract
+     * @dev Admin only. Sets initial proposal id which initiates the contract, ensuring a continuous proposal id count
+     */
+    function _refund(uint256 proposalId) internal {
+        Proposal storage proposal = proposals[proposalId];
+        if (proposal.token == address(0) || proposal.amount == 0) return;
+
+        address proposer = proposal.proposer;
+        uint256 amount = proposal.amount;
+
+        require(_msgSender() == proposer, 'GovernorBravo::_refund: caller is not proposer');
+        TransferHelper.safeTransfer(proposal.token, _msgSender(), amount);
+        proposal.amount = 0;
+
+        emit TokenRefund(proposalId, proposer, amount);
     }
 
     /**
@@ -569,6 +596,10 @@ contract GovernorBravoDelegate is Proposals, GovernorBravoDelegateStorageV1, Gov
     function sub256(uint256 a, uint256 b) internal pure returns (uint256) {
         require(b <= a, 'subtraction underflow');
         return a - b;
+    }
+
+    function mul256(uint256 x, uint256 y) internal pure returns (uint256 z) {
+        require(y == 0 || (z = x * y) / y == x, 'multiplication overflow');
     }
 
     function getChainIdInternal() internal pure returns (uint256) {

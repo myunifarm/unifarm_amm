@@ -49,6 +49,15 @@ contract GovernorBravoEvents {
 
     /// @notice Emitted when pendingAdmin is accepted, which means admin is updated
     event NewAdmin(address oldAdmin, address newAdmin);
+
+    /// @notice Emitted when voters claim the rewards
+    event SuccessClaim(uint256 proposalId, address reciever, uint256 tokenAmount);
+
+    /// @notice Emitted when proposal creator takes reward token refunds
+    event TokenRefund(uint256 proposalId, address proposer, uint256 refundAmount);
+
+    /// @notice Emitted when admin change the token permission for proposal creation
+    event TokenPermitted(address token, bool tokenPermit);
 }
 
 contract GovernorBravoDelegatorStorage {
@@ -96,6 +105,9 @@ contract GovernorBravoDelegateStorageV1 is GovernorBravoDelegatorStorage {
     /// @notice The latest proposal for each proposer
     mapping(address => uint256) public latestProposalIds;
 
+    /// @notice proposal creation whitelisted for following tokens
+    mapping(address => bool) public allowedTokens;
+
     struct Proposal {
         /// @notice Unique id for looking up a proposal
         uint256 id;
@@ -141,6 +153,8 @@ contract GovernorBravoDelegateStorageV1 is GovernorBravoDelegatorStorage {
         uint8 support;
         /// @notice The number of votes the voter had, which were cast
         uint96 votes;
+        /// @notice Whether or not voter has claimed the rewards
+        bool rewardsClaimed;
     }
 
     /// @notice Possible states that a proposal may be in
