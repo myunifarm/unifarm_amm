@@ -42,16 +42,26 @@
     "pretest": "yarn compile",
     "test": "mocha",
     "prepublishOnly": "yarn test",
-    "coverage": "yarn clean && hardhat coverage --solcoverjs .solcover.js"
+    "flatten": "npx hardhat flatten",
+    "coverage": "yarn clean && hardhat coverage --solcoverjs .solcover.js",
+    "local:deploy": "npx hardhat --network hardhat deploy"
   },
-  "license": "GPL-3.0-or-later",
+  "license": "MIT",
   "dependencies": {
+    "@nomiclabs/hardhat-etherscan": "^2.1.7",
+    "@nomiclabs/hardhat-solhint": "^2.0.0",
     "@openzeppelin/contracts": "^4.3.1",
     "@truffle/hdwallet-provider": "^1.5.1",
     "bignumber.js": "^9.0.1",
     "dotenv": "^10.0.0",
     "ethereum-waffle": "^3.4.0",
     "ethereumjs-abi": "^0.6.8",
+    "hardhat-abi-exporter": "2.0.8",
+    "hardhat-deploy": "^0.9.8",
+    "hardhat-deploy-ethers": "^0.3.0-beta.11",
+    "hardhat-gas-reporter": "^1.0.4",
+    "hardhat-spdx-license-identifier": "^2.0.3",
+    "hardhat-watcher": "^2.1.1",
     "solidity-docgen": "^0.5.13",
     "solparse": "^2.2.8",
     "web3": "^1.6.0"
