@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: MIT
+
 pragma solidity =0.5.16;
 
 import '../interfaces/IUnifarmFactory.sol';
@@ -244,7 +246,8 @@ contract UnifarmRouter02 is IUnifarmRouter02 {
     function _swap(
         uint256[] memory amounts,
         address[] memory path,
-        address _to
+        address _to,
+        uint256 _fees
     ) internal {
         for (uint256 i; i < path.length - 1; i++) {
             (address input, address output) = (path[i], path[i + 1]);
@@ -254,7 +257,12 @@ contract UnifarmRouter02 is IUnifarmRouter02 {
                 ? (uint256(0), amountOut)
                 : (amountOut, uint256(0));
             address to = i < path.length - 2 ? UnifarmLibrary.pairFor(factory, output, path[i + 2]) : _to;
-            IUnifarmPair(UnifarmLibrary.pairFor(factory, input, output)).swap(amount0Out, amount1Out, to, new bytes(0));
+            IUnifarmPair(UnifarmLibrary.pairFor(factory, input, output)).swap.value(_fees)(
+                amount0Out,
+                amount1Out,
+                to,
+                new bytes(0)
+            );
         }
     }
 
@@ -263,8 +271,9 @@ contract UnifarmRouter02 is IUnifarmRouter02 {
         uint256 amountOutMin,
         address[] calldata path,
         address to,
-        uint256 deadline
-    ) external ensure(deadline) returns (uint256[] memory amounts) {
+        uint256 deadline,
+        uint256 fees
+    ) external payable ensure(deadline) returns (uint256[] memory amounts) {
         amounts = UnifarmLibrary.getAmountsOut(factory, amountIn, path);
         require(amounts[amounts.length - 1] >= amountOutMin, 'UnifarmRouter: INSUFFICIENT_OUTPUT_AMOUNT');
         TransferHelper.safeTransferFrom(
@@ -273,7 +282,7 @@ contract UnifarmRouter02 is IUnifarmRouter02 {
             UnifarmLibrary.pairFor(factory, path[0], path[1]),
             amounts[0]
         );
-        _swap(amounts, path, to);
+        _swap(amounts, path, to, fees);
     }
 
     function swapTokensForExactTokens(
@@ -281,8 +290,9 @@ contract UnifarmRouter02 is IUnifarmRouter02 {
         uint256 amountInMax,
         address[] calldata path,
         address to,
-        uint256 deadline
-    ) external ensure(deadline) returns (uint256[] memory amounts) {
+        uint256 deadline,
+        uint256 fees
+    ) external payable ensure(deadline) returns (uint256[] memory amounts) {
         amounts = UnifarmLibrary.getAmountsIn(factory, amountOut, path);
         require(amounts[0] <= amountInMax, 'UnifarmRouter: EXCESSIVE_INPUT_AMOUNT');
         TransferHelper.safeTransferFrom(
@@ -291,21 +301,22 @@ contract UnifarmRouter02 is IUnifarmRouter02 {
             UnifarmLibrary.pairFor(factory, path[0], path[1]),
             amounts[0]
         );
-        _swap(amounts, path, to);
+        _swap(amounts, path, to, fees);
     }
 
     function swapExactETHForTokens(
         uint256 amountOutMin,
         address[] calldata path,
         address to,
-        uint256 deadline
+        uint256 deadline,
+        uint256 fees
     ) external payable ensure(deadline) returns (uint256[] memory amounts) {
         require(path[0] == WETH, 'UnifarmRouter: INVALID_PATH');
         amounts = UnifarmLibrary.getAmountsOut(factory, msg.value, path);
         require(amounts[amounts.length - 1] >= amountOutMin, 'UnifarmRouter: INSUFFICIENT_OUTPUT_AMOUNT');
         IWETH(WETH).deposit.value(amounts[0])();
         assert(IWETH(WETH).transfer(UnifarmLibrary.pairFor(factory, path[0], path[1]), amounts[0]));
-        _swap(amounts, path, to);
+        _swap(amounts, path, to, fees);
     }
 
     function swapTokensForExactETH(
@@ -313,8 +324,9 @@ contract UnifarmRouter02 is IUnifarmRouter02 {
         uint256 amountInMax,
         address[] calldata path,
         address to,
-        uint256 deadline
-    ) external ensure(deadline) returns (uint256[] memory amounts) {
+        uint256 deadline,
+        uint256 fees
+    ) external payable ensure(deadline) returns (uint256[] memory amounts) {
         require(path[path.length - 1] == WETH, 'UnifarmRouter: INVALID_PATH');
         amounts = UnifarmLibrary.getAmountsIn(factory, amountOut, path);
         require(amounts[0] <= amountInMax, 'UnifarmRouter: EXCESSIVE_INPUT_AMOUNT');
@@ -324,7 +336,7 @@ contract UnifarmRouter02 is IUnifarmRouter02 {
             UnifarmLibrary.pairFor(factory, path[0], path[1]),
             amounts[0]
         );
-        _swap(amounts, path, address(this));
+        _swap(amounts, path, address(this), fees);
         IWETH(WETH).withdraw(amounts[amounts.length - 1]);
         TransferHelper.safeTransferETH(to, amounts[amounts.length - 1]);
     }
@@ -334,8 +346,9 @@ contract UnifarmRouter02 is IUnifarmRouter02 {
         uint256 amountOutMin,
         address[] calldata path,
         address to,
-        uint256 deadline
-    ) external ensure(deadline) returns (uint256[] memory amounts) {
+        uint256 deadline,
+        uint256 fees
+    ) external payable ensure(deadline) returns (uint256[] memory amounts) {
         require(path[path.length - 1] == WETH, 'UnifarmRouter: INVALID_PATH');
         amounts = UnifarmLibrary.getAmountsOut(factory, amountIn, path);
         require(amounts[amounts.length - 1] >= amountOutMin, 'UnifarmRouter: INSUFFICIENT_OUTPUT_AMOUNT');
@@ -345,7 +358,7 @@ contract UnifarmRouter02 is IUnifarmRouter02 {
             UnifarmLibrary.pairFor(factory, path[0], path[1]),
             amounts[0]
         );
-        _swap(amounts, path, address(this));
+        _swap(amounts, path, address(this), fees);
         IWETH(WETH).withdraw(amounts[amounts.length - 1]);
         TransferHelper.safeTransferETH(to, amounts[amounts.length - 1]);
     }
@@ -354,21 +367,26 @@ contract UnifarmRouter02 is IUnifarmRouter02 {
         uint256 amountOut,
         address[] calldata path,
         address to,
-        uint256 deadline
+        uint256 deadline,
+        uint256 fees
     ) external payable ensure(deadline) returns (uint256[] memory amounts) {
         require(path[0] == WETH, 'UnifarmRouter: INVALID_PATH');
         amounts = UnifarmLibrary.getAmountsIn(factory, amountOut, path);
         require(amounts[0] <= msg.value, 'UnifarmRouter: EXCESSIVE_INPUT_AMOUNT');
         IWETH(WETH).deposit.value(amounts[0])();
         assert(IWETH(WETH).transfer(UnifarmLibrary.pairFor(factory, path[0], path[1]), amounts[0]));
-        _swap(amounts, path, to);
+        _swap(amounts, path, to, fees);
         // refund dust eth, if any
         if (msg.value > amounts[0]) TransferHelper.safeTransferETH(msg.sender, msg.value - amounts[0]);
     }
 
     // **** SWAP (supporting fee-on-transfer tokens) ****
     // requires the initial amount to have already been sent to the first pair
-    function _swapSupportingFeeOnTransferTokens(address[] memory path, address _to) internal {
+    function _swapSupportingFeeOnTransferTokens(
+        address[] memory path,
+        address _to,
+        uint256 _fees
+    ) internal {
         for (uint256 i; i < path.length - 1; i++) {
             (address input, address output) = (path[i], path[i + 1]);
             (address token0, ) = UnifarmLibrary.sortTokens(input, output);
@@ -395,7 +413,7 @@ contract UnifarmRouter02 is IUnifarmRouter02 {
                 ? (uint256(0), amountOutput)
                 : (amountOutput, uint256(0));
             address to = i < path.length - 2 ? UnifarmLibrary.pairFor(factory, output, path[i + 2]) : _to;
-            pair.swap(amount0Out, amount1Out, to, new bytes(0));
+            pair.swap.value(_fees)(amount0Out, amount1Out, to, new bytes(0));
         }
     }
 
@@ -404,8 +422,9 @@ contract UnifarmRouter02 is IUnifarmRouter02 {
         uint256 amountOutMin,
         address[] calldata path,
         address to,
-        uint256 deadline
-    ) external ensure(deadline) {
+        uint256 deadline,
+        uint256 fees
+    ) external payable ensure(deadline) {
         TransferHelper.safeTransferFrom(
             path[0],
             msg.sender,
@@ -413,7 +432,7 @@ contract UnifarmRouter02 is IUnifarmRouter02 {
             amountIn
         );
         uint256 balanceBefore = IERC20(path[path.length - 1]).balanceOf(to);
-        _swapSupportingFeeOnTransferTokens(path, to);
+        _swapSupportingFeeOnTransferTokens(path, to, fees);
         require(
             IERC20(path[path.length - 1]).balanceOf(to).sub(balanceBefore) >= amountOutMin,
             'UnifarmRouter: INSUFFICIENT_OUTPUT_AMOUNT'
@@ -424,14 +443,15 @@ contract UnifarmRouter02 is IUnifarmRouter02 {
         uint256 amountOutMin,
         address[] calldata path,
         address to,
-        uint256 deadline
+        uint256 deadline,
+        uint256 fees
     ) external payable ensure(deadline) {
         require(path[0] == WETH, 'UnifarmRouter: INVALID_PATH');
         uint256 amountIn = msg.value;
         IWETH(WETH).deposit.value(amountIn)();
         assert(IWETH(WETH).transfer(UnifarmLibrary.pairFor(factory, path[0], path[1]), amountIn));
         uint256 balanceBefore = IERC20(path[path.length - 1]).balanceOf(to);
-        _swapSupportingFeeOnTransferTokens(path, to);
+        _swapSupportingFeeOnTransferTokens(path, to, fees);
         require(
             IERC20(path[path.length - 1]).balanceOf(to).sub(balanceBefore) >= amountOutMin,
             'UnifarmRouter: INSUFFICIENT_OUTPUT_AMOUNT'
@@ -443,8 +463,9 @@ contract UnifarmRouter02 is IUnifarmRouter02 {
         uint256 amountOutMin,
         address[] calldata path,
         address to,
-        uint256 deadline
-    ) external ensure(deadline) {
+        uint256 deadline,
+        uint256 fees
+    ) external payable ensure(deadline) {
         require(path[path.length - 1] == WETH, 'UnifarmRouter: INVALID_PATH');
         TransferHelper.safeTransferFrom(
             path[0],
@@ -452,7 +473,7 @@ contract UnifarmRouter02 is IUnifarmRouter02 {
             UnifarmLibrary.pairFor(factory, path[0], path[1]),
             amountIn
         );
-        _swapSupportingFeeOnTransferTokens(path, address(this));
+        _swapSupportingFeeOnTransferTokens(path, address(this), fees);
         uint256 amountOut = IERC20(WETH).balanceOf(address(this));
         require(amountOut >= amountOutMin, 'UnifarmRouter: INSUFFICIENT_OUTPUT_AMOUNT');
         IWETH(WETH).withdraw(amountOut);

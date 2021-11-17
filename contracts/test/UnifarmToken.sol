@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: MIT
+
 /**
  *Submitted for verification at BscScan.com on 2021-07-14
  */
@@ -5,8 +7,6 @@
 // Sources flattened with hardhat v2.1.2 https://hardhat.org
 
 // File contracts/interfaces/IERC20Upgradeable.sol
-
-// SPDX-License-Identifier: MIT
 
 pragma solidity 0.8.0;
 
