@@ -14,7 +14,7 @@ const main = async () => {
   const unifarmFactory = await deployAndVerify(
     'UnifarmFactory',
     [
-      configs.feeTo,
+      configs.feeTo || deployer,
       configs.trustedForwarder,
       configs.lpFee,
       configs.swapFee,
@@ -44,7 +44,7 @@ const main = async () => {
 
   const multiSigWallet = await deployAndVerify(
     'MultiSigWallet',
-    [configs.owners, configs.required],
+    [configs.owners || [deployer], configs.required],
     deployer,
     'contracts/utility/MultiSigWallet.sol:MultiSigWallet',
     chainId
@@ -52,7 +52,7 @@ const main = async () => {
 
   const ammUtility = await deployAndVerify(
     'AMMUtility',
-    [configs.ammUtilityFeeTo, configs.ammUtilityFee, wethAddress],
+    [configs.ammUtilityFeeTo || deployer, configs.ammUtilityFee, wethAddress],
     deployer,
     'contracts/AMMUtility.sol:AMMUtility',
     chainId
@@ -65,12 +65,41 @@ const main = async () => {
     'contracts/governance/GovernorBravoDelegate.sol:GovernorBravoDelegate',
     chainId
   )
+
+  let timelock = configs.timelock
+  let ufarm = configs.ufarm
+
+  if (!timelock) {
+    const timelockContract = await deployAndVerify(
+      'Timelock',
+      [configs.admin || deployer, configs.timelockDelay],
+      deployer,
+      'contracts/test/Timelock.sol:Timelock',
+      chainId
+    )
+
+    timelock = timelockContract.address
+  }
+
+  if (!ufarm) {
+    const ufarmContract = await deployAndVerify(
+      'UnifarmToken',
+      [],
+      deployer,
+      'contracts/test/UnifarmToken.sol:UnifarmToken',
+      chainId
+    )
+
+    await (await ethers.getContract('UnifarmToken')).__UnifarmToken_init(configs.ufarmInitialSupply)
+    ufarm = ufarmContract.address
+  }
+
   const govDelegator = await deployAndVerify(
     'GovernorBravoDelegator',
     [
-      configs.timelock,
-      configs.ufarm,
-      configs.govDelegatorAdmin,
+      timelock,
+      ufarm,
+      configs.govDelegatorAdmin || deployer,
       gov.address,
       configs.votingPeriod,
       configs.votingDelay,
@@ -81,6 +110,15 @@ const main = async () => {
     'contracts/governance/GovernorBravoDelegator.sol:GovernorBravoDelegator',
     chainId
   )
+
+  //set governance as timelock admin
+  const iface = new ethers.utils.Interface(['function setPendingAdmin(address pendingAdmin_)'])
+  const setPendingAdminData = iface.encodeFunctionData('setPendingAdmin', [gov.address])
+
+  const timestamp = (await ethers.provider.getBlock()).timestamp
+  const eta = timestamp + configs.timelockDelay
+
+  await (await ethers.getContract('Timelock')).queueTransaction(timelock, 0, '', setPendingAdminData, eta)
 
   contracts.push({ unifarmRouter02: unifarmRouter02.address })
   contracts.push({ multiSigWallet: multiSigWallet.address })
