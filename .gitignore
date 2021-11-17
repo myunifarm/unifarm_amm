@@ -11,3 +11,4 @@ abi
 yarn.lock
 
 config/*-addresses.json
+deployments

@@ -79,7 +79,27 @@ module.exports = {
           runs: 200
         }
       }
-    ]
+    ],
+    overrides: {
+      'contracts/UnifarmFactory.sol': {
+        version: '0.5.16',
+        settings: {
+          optimizer: {
+            enabled: true,
+            runs: 1000
+          }
+        }
+      },
+      'contracts/governance/GovernorBravoDelegate.sol': {
+        version: '0.5.16',
+        settings: {
+          optimizer: {
+            enabled: true,
+            runs: 1000
+          }
+        }
+      }
+    }
   },
   paths: {
     artifacts: 'artifacts',

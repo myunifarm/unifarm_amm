@@ -23,27 +23,26 @@ module.exports = {
     timelockDelay: '172800'
   },
   '3': {
-    weth: '',
+    weth: '0xeBC55532238c508118f27d242d39d032980506db',
     ufarm: '',
     timelock: '',
-    govDelegatorAdmin: '',
-    feeTo: '0x0000000000000000000000000000000000000001',
-    ammUtilityFeeTo: '0x0000000000000000000000000000000000000002',
-    trustedForwarder: '0x0000000000000000000000000000000000000001',
-    owners: ['0x0000000000000000000000000000000000000001', '0x0000000000000000000000000000000000000002'],
-    admin: '',
-    required: 2, // required should be less than equal to owners array length
-    ammUtilityFee: '23',
+    govDelegatorAdmin: '0x8D0ed255C1a7755Ca00Ad7Ea7269b5Ad388259C0',
+    feeTo: '0x8D0ed255C1a7755Ca00Ad7Ea7269b5Ad388259C0',
+    ammUtilityFeeTo: '0x8D0ed255C1a7755Ca00Ad7Ea7269b5Ad388259C0',
+    trustedForwarder: '0x3D1D6A62c588C1Ee23365AF623bdF306Eb47217A',
+    owners: ['0x8D0ed255C1a7755Ca00Ad7Ea7269b5Ad388259C0'],
+    admin: '0x8D0ed255C1a7755Ca00Ad7Ea7269b5Ad388259C0',
+    required: 1, // required should be less than equal to owners array length
+    ammUtilityFee: '1000',
     lpFee: '100',
-    swapFee: '1',
+    swapFee: '100',
     lpFeesInToken: true,
     swapFeesInToken: true,
-    delay: 100,
-    votingPeriod: '17280',
+    votingPeriod: '7200',
     votingDelay: '1',
     proposalThreshold: '100000000000000000000000',
     ufarmInitialSupply: '1000000000000000000000000000',
-    timelockDelay: '172800'
+    timelockDelay: '400'
   },
   '1': {
     weth: '',
@@ -52,7 +51,7 @@ module.exports = {
     govDelegatorAdmin: '',
     feeTo: '0x0000000000000000000000000000000000000001',
     ammUtilityFeeTo: '0x0000000000000000000000000000000000000002',
-    trustedForwarder: '0x0000000000000000000000000000000000000001',
+    trustedForwarder: '0x84a0856b038eaAd1cC7E297cF34A7e72685A8693',
     owners: ['0x0000000000000000000000000000000000000001', '0x0000000000000000000000000000000000000002'],
     admin: '',
     required: 2, // required should be less than equal to owners array length

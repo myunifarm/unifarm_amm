@@ -44,7 +44,8 @@
     "prepublishOnly": "yarn test",
     "flatten": "npx hardhat flatten",
     "coverage": "yarn clean && hardhat coverage --solcoverjs .solcover.js",
-    "local:deploy": "npx hardhat --network hardhat deploy"
+    "local:deploy": "npx hardhat --network hardhat deploy",
+    "ropsten:deploy": "npx hardhat --network ropsten deploy"
   },
   "license": "MIT",
   "dependencies": {
