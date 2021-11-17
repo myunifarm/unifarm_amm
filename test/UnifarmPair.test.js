@@ -106,8 +106,8 @@ describe('UnifarmPair', () => {
 
     await expect(pair.mint(wallet.address))
       .to.emit(pair, 'Transfer')
-      .withArgs(AddressZero, wallet.address, '1994000000000000000')
-    await pair.transfer(pair.address, '1994000000000000000')
+      .withArgs(AddressZero, wallet.address, BigNumber.from(expandTo18Decimals(2)))
+    await pair.transfer(pair.address, BigNumber.from(expandTo18Decimals(2)))
     await expect(pair.connect(wallet).burn(wallet.address)).to.emit(pair, 'Burn')
   })
 

@@ -13,7 +13,7 @@ async function enfranchise(ufarm, actor, amount) {
 }
 
 describe('governorBravo', () => {
-  let ufarm, gov, root, a1, accounts, timelock, signWallet, acct
+  let ufarm, gov, govDelegator, root, a1, accounts, timelock, signWallet, acct
   let targets, values, signatures, callDatas, proposalId
 
   const delay = 259200 //3 days
@@ -25,17 +25,28 @@ describe('governorBravo', () => {
 
     const UnifarmToken = await ethers.getContractFactory('UnifarmToken')
     const GovernorBravoDelegate = await ethers.getContractFactory('GovernorBravoDelegate')
+    const GovernorBravoDelegator = await ethers.getContractFactory('GovernorBravoDelegator')
     const Timelock = await ethers.getContractFactory('Timelock')
+    const Token = await ethers.getContractFactory('ERC20')
 
     ufarm = await UnifarmToken.deploy()
     gov = await GovernorBravoDelegate.deploy()
     timelock = await Timelock.deploy(root.address, delay)
+    whitelistedToken = await Token.deploy(expandTo18Decimals('10000'))
+    nonWhitelistedToken = await Token.deploy(expandTo18Decimals('10000'))
 
     //initialise
     await ufarm.__UnifarmToken_init(expandTo18Decimals('10000000000'))
-    await gov
-      .connect(root)
-      .initialize(timelock.address, ufarm.address, 17280, 1, '100000000000000000000000', root.address)
+    govDelegator = await GovernorBravoDelegator.deploy(
+      timelock.address,
+      ufarm.address,
+      root.address,
+      gov.address,
+      17280,
+      1,
+      '100000000000000000000000',
+      root.address
+    )
 
     let iface = new ethers.utils.Interface(ABI)
     const setPendingAdminData = iface.encodeFunctionData('setPendingAdmin', [gov.address])
@@ -55,7 +66,7 @@ describe('governorBravo', () => {
     callDatas = [encodeParameters(['address'], [a1.address])]
 
     await ufarm.delegate(a1.address)
-    await gov.connect(a1).propose(targets, values, signatures, callDatas, 'do nothing')
+    await gov.connect(a1).propose(whitelistedToken.address, 0, targets, values, signatures, callDatas, 'do nothing')
     proposalId = await gov.latestProposalIds(a1.address)
     proposalBlock = +(await ethers.provider.getBlockNumber())
 
