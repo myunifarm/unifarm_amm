@@ -24,8 +24,8 @@ module.exports = {
   },
   '3': {
     weth: '0xeBC55532238c508118f27d242d39d032980506db',
-    ufarm: '',
-    timelock: '',
+    ufarm: '0xf90c82442644d566c485d87ea7362b21edc66a54',
+    timelock: '0xc31121a45Fd1E610C865B629E681FF5F7BA31007',
     govDelegatorAdmin: '0x8D0ed255C1a7755Ca00Ad7Ea7269b5Ad388259C0',
     feeTo: '0x8D0ed255C1a7755Ca00Ad7Ea7269b5Ad388259C0',
     ammUtilityFeeTo: '0x8D0ed255C1a7755Ca00Ad7Ea7269b5Ad388259C0',

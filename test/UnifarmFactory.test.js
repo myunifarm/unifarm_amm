@@ -42,19 +42,18 @@ describe('UnifarmFactory', () => {
   })
 
   async function createPair(tokens) {
-    const bytecode = UnifarmPair.bytecode
-    const create2Address = getCreate2Address(factory.address, tokens[0], tokens[1], bytecode)
     await expect(factory.createPair(...tokens)).to.emit(factory, 'PairCreated')
+    let pairAddress = await factory.getPair(...tokens)
 
     await expect(factory.createPair(...tokens)).to.be.reverted // Unifarm: PAIR_EXISTS
     await expect(factory.createPair(...tokens.slice().reverse())).to.be.reverted // Unifarm: PAIR_EXISTS
-    expect(await factory.getPair(...tokens)).to.eq(create2Address)
-    expect(await factory.getPair(...tokens.slice().reverse())).to.eq(create2Address)
-    expect(await factory.allPairs(0)).to.eq(create2Address)
+    expect(await factory.getPair(...tokens)).to.eq(pairAddress)
+    expect(await factory.getPair(...tokens.slice().reverse())).to.eq(pairAddress)
+    expect(await factory.allPairs(0)).to.eq(pairAddress)
     expect(await factory.allPairsLength()).to.eq(1)
 
     const UnifarmPairContract = await ethers.getContractFactory('UnifarmPair')
-    const pair = await UnifarmPairContract.attach(create2Address)
+    const pair = await UnifarmPairContract.attach(pairAddress)
 
     expect(await pair.factory()).to.eq(factory.address)
     expect(await pair.token0()).to.eq(TEST_ADDRESSES[0])
@@ -72,7 +71,7 @@ describe('UnifarmFactory', () => {
   it('createPair:gas', async () => {
     const tx = await factory.createPair(...TEST_ADDRESSES)
     const receipt = await tx.wait()
-    expect(receipt.gasUsed).to.gte(3234107)
+    expect(receipt.gasUsed).to.gte(2831242)
   })
 
   it('setFeeTo', async () => {

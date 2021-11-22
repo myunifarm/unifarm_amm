@@ -1,5 +1,5 @@
 const { getNamedAccounts, getChainId, ethers } = require('hardhat')
-const { deployAndVerify, store } = require('../scripts/utils')
+const { deployAndVerify, store, sleep } = require('../scripts/utils')
 
 let configs = require('../config/config')
 let contracts = []
@@ -91,6 +91,7 @@ const main = async () => {
     )
 
     await (await ethers.getContract('UnifarmToken')).__UnifarmToken_init(configs.ufarmInitialSupply)
+    await sleep(30)
     ufarm = ufarmContract.address
   }
 

@@ -4,6 +4,7 @@ pragma solidity =0.5.16;
 
 interface IUnifarmRouter02 {
     function factory() external pure returns (address);
+
     function WETH() external pure returns (address);
 
     function addLiquidity(
@@ -39,6 +40,7 @@ interface IUnifarmRouter02 {
             uint256 liquidity
         );
 
+    // **** REMOVE LIQUIDITY ****
     function removeLiquidity(
         address tokenA,
         address tokenB,
@@ -90,22 +92,25 @@ interface IUnifarmRouter02 {
         uint256 amountOutMin,
         address[] calldata path,
         address to,
-        uint256 deadline
-    ) external returns (uint256[] memory amounts);
+        uint256 deadline,
+        uint256 fees
+    ) external payable returns (uint256[] memory amounts);
 
     function swapTokensForExactTokens(
         uint256 amountOut,
         uint256 amountInMax,
         address[] calldata path,
         address to,
-        uint256 deadline
-    ) external returns (uint256[] memory amounts);
+        uint256 deadline,
+        uint256 fees
+    ) external payable returns (uint256[] memory amounts);
 
     function swapExactETHForTokens(
         uint256 amountOutMin,
         address[] calldata path,
         address to,
-        uint256 deadline
+        uint256 deadline,
+        uint256 fees
     ) external payable returns (uint256[] memory amounts);
 
     function swapTokensForExactETH(
@@ -113,24 +118,28 @@ interface IUnifarmRouter02 {
         uint256 amountInMax,
         address[] calldata path,
         address to,
-        uint256 deadline
-    ) external returns (uint256[] memory amounts);
+        uint256 deadline,
+        uint256 fees
+    ) external payable returns (uint256[] memory amounts);
 
     function swapExactTokensForETH(
         uint256 amountIn,
         uint256 amountOutMin,
         address[] calldata path,
         address to,
-        uint256 deadline
-    ) external returns (uint256[] memory amounts);
+        uint256 deadline,
+        uint256 fees
+    ) external payable returns (uint256[] memory amounts);
 
     function swapETHForExactTokens(
         uint256 amountOut,
         address[] calldata path,
         address to,
-        uint256 deadline
+        uint256 deadline,
+        uint256 fees
     ) external payable returns (uint256[] memory amounts);
 
+    // **** LIBRARY FUNCTIONS ****
     function quote(
         uint256 amountA,
         uint256 reserveA,
@@ -140,17 +149,24 @@ interface IUnifarmRouter02 {
     function getAmountOut(
         uint256 amountIn,
         uint256 reserveIn,
-        uint256 reserveOut
-    ) external pure returns (uint256 amountOut);
+        uint256 reserveOut,
+        address tokenIn,
+        address tokenOut
+    ) external view returns (uint256 amountOut);
 
     function getAmountIn(
         uint256 amountOut,
         uint256 reserveIn,
-        uint256 reserveOut
-    ) external pure returns (uint256 amountIn);
+        uint256 reserveOut,
+        address tokenIn,
+        address tokenOut
+    ) external view returns (uint256 amountIn);
+
     function getAmountsOut(uint256 amountIn, address[] calldata path) external view returns (uint256[] memory amounts);
+
     function getAmountsIn(uint256 amountOut, address[] calldata path) external view returns (uint256[] memory amounts);
 
+    // **** REMOVE LIQUIDITY (supporting fee-on-transfer tokens) ****
     function removeLiquidityETHSupportingFeeOnTransferTokens(
         address token,
         uint256 liquidity,
@@ -178,14 +194,16 @@ interface IUnifarmRouter02 {
         uint256 amountOutMin,
         address[] calldata path,
         address to,
-        uint256 deadline
-    ) external;
+        uint256 deadline,
+        uint256 fees
+    ) external payable;
 
     function swapExactETHForTokensSupportingFeeOnTransferTokens(
         uint256 amountOutMin,
         address[] calldata path,
         address to,
-        uint256 deadline
+        uint256 deadline,
+        uint256 fees
     ) external payable;
 
     function swapExactTokensForETHSupportingFeeOnTransferTokens(
@@ -193,6 +211,7 @@ interface IUnifarmRouter02 {
         uint256 amountOutMin,
         address[] calldata path,
         address to,
-        uint256 deadline
-    ) external;
+        uint256 deadline,
+        uint256 fees
+    ) external payable;
 }
