@@ -80,7 +80,7 @@ contract UnifarmPair is IUnifarmPair, UnifarmERC20 {
     event FeeDeducted(uint256 fee, bool feeInToken, address feeToken);
 
     constructor() public {
-        factory = _msgSender();
+        factory = msg.sender;
     }
 
     // called once by the factory at time of deployment
@@ -93,7 +93,7 @@ contract UnifarmPair is IUnifarmPair, UnifarmERC20 {
         require(_token1 != address(0), 'Unifarm: _token1 ZERO ADDRESS');
         require(_trustedForwarder != address(0), 'Unifarm: _trustedForwarder ZERO ADDRESS');
 
-        require(_msgSender() == factory, 'Unifarm: FORBIDDEN'); // sufficient check
+        require(msg.sender == factory, 'Unifarm: FORBIDDEN'); // sufficient check
         token0 = _token0;
         token1 = _token1;
         trustedForwarder = _trustedForwarder;

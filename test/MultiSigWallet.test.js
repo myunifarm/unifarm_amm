@@ -104,7 +104,6 @@ describe('MultiSigWallet', () => {
     expect(await multisigInstance.connect(accounts1).getConfirmationCount(transactionId1)).to.equal(2)
     expect(await multisigInstance.connect(accounts1).getTransactionCount(false, true)).to.equal(2)
     expect(await multisigInstance.isConfirmed(1)).to.equal(true)
-    // console.log([accounts0.address, accounts1.address, accounts2.address, accounts3.address])
     expect(await multisigInstance.getOwners()).to.have.all.members([accounts0.address, accounts1.address, accounts2.address, accounts3.address])
     expect(await multisigInstance.connect(accounts1).getConfirmations(transactionId1)).to.have.all.members([accounts0.address, accounts1.address])
     

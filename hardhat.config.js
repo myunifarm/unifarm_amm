@@ -119,7 +119,10 @@ module.exports = {
     hardhat: {
       saveDeployments: true,
       tags: ['test', 'local'],
-      allowUnlimitedContractSize: true
+      allowUnlimitedContractSize: true,
+      accounts: {
+        accountsBalance: "10000000000000000000000000"
+      }
     },
     ropsten: {
       url: `https://ropsten.infura.io/v3/${process.env.INFURA_API_KEY}`,

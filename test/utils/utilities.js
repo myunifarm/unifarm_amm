@@ -1,6 +1,7 @@
 const { ethers } = require('hardhat')
 const { getAddress, keccak256, defaultAbiCoder, toUtf8Bytes, solidityPack } = ethers.utils
 const HARDHAT_DEFAULT_CHAIN_ID = 31337
+const MINIMUM_LIQUIDITY = 1000
 
 const PERMIT_TYPEHASH = keccak256(
   toUtf8Bytes('Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)')
@@ -83,5 +84,6 @@ module.exports = {
   getCreate2Address,
   getApprovalDigest,
   mineBlock,
-  encodePrice
+  encodePrice,
+  MINIMUM_LIQUIDITY
 }

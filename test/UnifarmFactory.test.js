@@ -1,14 +1,10 @@
 const { use, expect } = require('chai')
 const { ethers, waffle } = require('hardhat')
-const { ecsign } = require('ethereumjs-util')
-const { getApprovalDigest, getCreate2Address } = require('./utils/utilities')
 const { solidity } = waffle
 
 use(solidity)
 
 const TEST_ADDRESSES = ['0x1000000000000000000000000000000000000000', '0x2000000000000000000000000000000000000000']
-const { AddressZero } = ethers.constants
-const UnifarmPair = require('../artifacts/contracts/UnifarmPair.sol/UnifarmPair.json')
 
 describe('UnifarmFactory', () => {
   let wallet, other, trustedForwarder

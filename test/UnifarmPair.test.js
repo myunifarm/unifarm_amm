@@ -4,7 +4,7 @@ const { solidity } = waffle
 use(solidity)
 
 const { AddressZero } = ethers.constants
-const { expandTo18Decimals, encodePrice } = require('./utils/utilities')
+const { expandTo18Decimals, encodePrice } = require('../test/utils/utilities')
 const { BigNumber } = require('@ethersproject/bignumber')
 
 const MINIMUM_LIQUIDITY = ethers.BigNumber.from(10).pow(3)
@@ -56,27 +56,24 @@ describe('UnifarmPair', () => {
     await token0.transfer(pair.address, token0Amount)
     await token1.transfer(pair.address, token1Amount)
 
-    const token1WithoutFees = token1Amount.mul(1000 - lpFee).div(1000)
-    const token0WithoutFees = token0Amount.mul(1000 - lpFee).div(1000)
-
     //deduct fees and min liquidity
-    const expectedLiquidity = BigNumber.from(expandTo18Decimals(2)).sub(expandTo18Decimals(lpFee * 2).div(1000))
+    const expectedLiquidity = BigNumber.from(expandTo18Decimals(2))
 
     await expect(pair.mint(wallet.address))
       .to.emit(pair, 'Transfer')
       .withArgs(AddressZero, AddressZero, MINIMUM_LIQUIDITY)
       .to.emit(pair, 'Sync')
-      .withArgs(token0WithoutFees, token1WithoutFees)
+      .withArgs(token0Amount, token1Amount)
       .to.emit(pair, 'Mint')
-      .withArgs(wallet.address, token0WithoutFees, token1WithoutFees)
+      .withArgs(wallet.address, token0Amount, token1Amount)
 
     expect(await pair.totalSupply()).to.eq(expectedLiquidity.toString())
     expect(await pair.balanceOf(wallet.address)).to.eq(expectedLiquidity.sub(MINIMUM_LIQUIDITY))
-    expect(await token0.balanceOf(pair.address)).to.eq(token0WithoutFees)
-    expect(await token1.balanceOf(pair.address)).to.eq(token1WithoutFees)
+    expect(await token0.balanceOf(pair.address)).to.eq(token0Amount)
+    expect(await token1.balanceOf(pair.address)).to.eq(token1Amount)
     const reserves = await pair.getReserves()
-    expect(reserves[0]).to.eq(token0WithoutFees)
-    expect(reserves[1]).to.eq(token1WithoutFees)
+    expect(reserves[0]).to.eq(token0Amount)
+    expect(reserves[1]).to.eq(token1Amount)
   })
 
   it('mintFee', async () => {

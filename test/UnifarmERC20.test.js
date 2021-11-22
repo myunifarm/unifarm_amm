@@ -1,7 +1,7 @@
 const { use, expect } = require('chai')
 const { ethers, waffle } = require('hardhat')
 const { ecsign } = require('ethereumjs-util')
-const { getApprovalDigest } = require('./utils/utilities')
+const { getApprovalDigest } = require('../test/utils/utilities')
 const { solidity } = waffle
 
 use(solidity)
