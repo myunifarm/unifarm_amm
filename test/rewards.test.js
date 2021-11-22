@@ -14,21 +14,26 @@ async function enfranchise(ufarm, actor, amount) {
 const ABI = ['function setPendingAdmin(address pendingAdmin_)']
 const delay = 259200 //3 days
 
-describe('GovernorBravo#queue/1', () => {
+describe('GovernorBravo#rewards', () => {
   let root, a1, a2, accounts
   let ufarm
   let gov
   let timelock
+  let token
   beforeEach(async () => {
     ;[root, a1, a2, ...accounts] = await ethers.getSigners()
 
     const UnifarmToken = await ethers.getContractFactory('UnifarmToken')
     const GovernorBravoDelegate = await ethers.getContractFactory('GovernorBravoDelegate')
     const Timelock = await ethers.getContractFactory('Timelock')
+    const Token = await ethers.getContractFactory('ERC20')
 
+    token = await Token.deploy(expandTo18Decimals(10000))
     ufarm = await UnifarmToken.deploy()
     gov = await GovernorBravoDelegate.deploy()
     timelock = await Timelock.deploy(root.address, delay)
+
+    await token.transfer(a1.address, expandTo18Decimals(100))
   })
 
   describe('overlapping actions', async () => {
@@ -63,10 +68,16 @@ describe('GovernorBravo#queue/1', () => {
 
       expect(await gov.versionRecipient()).to.equal('1')
 
-      await gov.connect(root).updateTokenPermission(ethers.constants.AddressZero, true)
+      await expect(gov.connect(a1).propose(token.address, 0, targets, values, signatures, calldatas, 'do nothing')).to
+        .be.reverted
 
+      await gov.connect(root).updateTokenPermission(token.address, true)
+
+      await token.connect(a1).approve(gov.address, expandTo18Decimals(10))
       await expect(
-        gov.connect(a1).propose(ethers.constants.AddressZero, 0, targets, values, signatures, calldatas, 'do nothing')
+        gov
+          .connect(a1)
+          .propose(token.address, expandTo18Decimals(10), targets, values, signatures, calldatas, 'do nothing')
       ).to.emit(gov, 'ProposalCreated')
 
       proposalId = await gov.latestProposalIds(a1.address)
@@ -74,8 +85,6 @@ describe('GovernorBravo#queue/1', () => {
       await ethers.provider.send('evm_mine')
 
       await expect(gov.connect(a1).castVote(proposalId, 1)).to.emit(gov, 'VoteCast')
-
-      const receipt = await gov.getReceipt(proposalId, a1.address)
 
       await expect(gov.connect(a2).castVoteWithReason(proposalId, 1, '')).to.emit(gov, 'VoteCast')
 

@@ -48,6 +48,8 @@ describe('governorBravo', () => {
       root.address
     )
 
+    gov = GovernorBravoDelegate.attach(govDelegator.address)
+
     let iface = new ethers.utils.Interface(ABI)
     const setPendingAdminData = iface.encodeFunctionData('setPendingAdmin', [gov.address])
 
@@ -66,6 +68,8 @@ describe('governorBravo', () => {
     callDatas = [encodeParameters(['address'], [a1.address])]
 
     await ufarm.delegate(a1.address)
+
+    await gov.connect(root).updateTokenPermission(whitelistedToken.address, true)
     await gov.connect(a1).propose(whitelistedToken.address, 0, targets, values, signatures, callDatas, 'do nothing')
     proposalId = await gov.latestProposalIds(a1.address)
     proposalBlock = +(await ethers.provider.getBlockNumber())
@@ -111,7 +115,7 @@ describe('governorBravo', () => {
         actor = accounts[1]
         await enfranchise(ufarm, actor, 400001)
 
-        await gov.connect(actor).propose(targets, values, signatures, callDatas, 'do nothing')
+        await gov.connect(actor).propose(whitelistedToken.address, 0, targets, values, signatures, callDatas, 'do nothing')
         proposalId = await gov.latestProposalIds(actor.address)
 
         let beforeFors = (await gov.proposals(proposalId)).forVotes
@@ -128,7 +132,7 @@ describe('governorBravo', () => {
         actor = accounts[3]
         await enfranchise(ufarm, actor, 400001)
 
-        await gov.connect(actor).propose(targets, values, signatures, callDatas, 'do nothing')
+        await gov.connect(actor).propose(whitelistedToken.address, 0, targets, values, signatures, callDatas, 'do nothing')
         proposalId = await gov.latestProposalIds(actor.address)
 
         let beforeAgainsts = (await gov.proposals(proposalId)).againstVotes
@@ -175,7 +179,7 @@ describe('governorBravo', () => {
       await enfranchise(ufarm, actor, votes)
       await enfranchise(ufarm, actor2, votes)
 
-      await gov.connect(actor).propose(targets, values, signatures, callDatas, 'do nothing')
+      await gov.connect(actor).propose(whitelistedToken.address, 0, targets, values, signatures, callDatas, 'do nothing')
       proposalId = await gov.latestProposalIds(actor.address)
 
       await ethers.provider.send('evm_mine')
@@ -237,27 +241,27 @@ describe('governorBravo', () => {
     describe('This function must revert if', () => {
       it('the length of the values, signatures or calldatas arrays are not the same length,', async () => {
         await expect(
-          gov.connect(a1).propose(targets.concat(root.address), values, signatures, callDatas, 'do nothing')
+          gov.connect(a1).propose(whitelistedToken.address, 0, targets.concat(root.address), values, signatures, callDatas, 'do nothing')
         ).to.be.revertedWith('GovernorBravo::propose: proposal function information arity mismatch')
         await expect(
-          gov.connect(a1).propose(targets, values.concat(values), signatures, callDatas, 'do nothing')
+          gov.connect(a1).propose(whitelistedToken.address, 0, targets, values.concat(values), signatures, callDatas, 'do nothing')
         ).to.be.revertedWith('GovernorBravo::propose: proposal function information arity mismatch')
         await expect(
-          gov.connect(a1).propose(targets, values, signatures.concat(signatures), callDatas, 'do nothing')
+          gov.connect(a1).propose(whitelistedToken.address, 0, targets, values, signatures.concat(signatures), callDatas, 'do nothing')
         ).to.be.revertedWith('GovernorBravo::propose: proposal function information arity mismatch')
         await expect(
-          gov.connect(a1).propose(targets, values, signatures, callDatas.concat(callDatas), 'do nothing')
+          gov.connect(a1).propose(whitelistedToken.address, 0, targets, values, signatures, callDatas.concat(callDatas), 'do nothing')
         ).to.be.revertedWith('GovernorBravo::propose: proposal function information arity mismatch')
       })
       it('or if that length is zero or greater than Max Operations.', async () => {
-        await expect(gov.connect(a1).propose([], [], [], [], 'do nothing')).to.be.revertedWith(
+        await expect(gov.connect(a1).propose(whitelistedToken.address, 0, [], [], [], [], 'do nothing')).to.be.revertedWith(
           'GovernorBravo::propose: must provide actions'
         )
       })
       describe('Additionally, if there exists a pending or active proposal from the same proposer, we must revert.', () => {
         it('reverts with pending', async () => {
           await expect(
-            gov.connect(a1).propose(targets, values, signatures, callDatas, 'do nothing')
+            gov.connect(a1).propose(whitelistedToken.address, 0, targets, values, signatures, callDatas, 'do nothing')
           ).to.be.revertedWith(
             'GovernorBravo::propose: one live proposal per proposer, found an already pending proposal'
           )
@@ -266,7 +270,7 @@ describe('governorBravo', () => {
           await ethers.provider.send('evm_mine')
           await ethers.provider.send('evm_mine')
           await expect(
-            gov.connect(a1).propose(targets, values, signatures, callDatas, 'do nothing')
+            gov.connect(a1).propose(whitelistedToken.address, 0, targets, values, signatures, callDatas, 'do nothing')
           ).to.be.revertedWith(
             'GovernorBravo::propose: one live proposal per proposer, found an already active proposal'
           )
@@ -281,7 +285,7 @@ describe('governorBravo', () => {
       await ethers.provider.send('evm_mine')
 
       let proposalBlock = 2 + (await ethers.provider.getBlockNumber())
-      await expect(gov.connect(accounts[3]).propose(targets, values, signatures, callDatas, 'second proposal'))
+      await expect(gov.connect(accounts[3]).propose(whitelistedToken.address, 0, targets, values, signatures, callDatas, 'second proposal'))
         .to.emit(gov, 'ProposalCreated')
         .withArgs(
           3,

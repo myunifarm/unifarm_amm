@@ -68,7 +68,7 @@ contract GovernorBravoDelegate is GovernorBravoDelegateStorageV1, GovernorBravoE
         address trustedForwarder_
     ) public {
         require(address(timelock) == address(0), 'GovernorBravo::initialize: can only initialize once');
-        require(_msgSender() == admin, 'GovernorBravo::initialize: admin only');
+        require(msg.sender == admin, 'GovernorBravo::initialize: admin only');
         require(timelock_ != address(0), 'GovernorBravo::initialize: invalid timelock address');
         require(ufarm_ != address(0), 'GovernorBravo::initialize: invalid ufarm address');
         require(trustedForwarder_ != address(0), 'GovernorBravo::initialize: invalid trustedForwarder address');
@@ -99,7 +99,7 @@ contract GovernorBravoDelegate is GovernorBravoDelegateStorageV1, GovernorBravoE
      * proposal for.
      */
     function updateTokenPermission(address _token, bool _tokenPermit) external {
-        require(_msgSender() == admin, 'GovernorBravo::updateTokenPermission: admin only');
+        require(msg.sender == admin, 'GovernorBravo::updateTokenPermission: admin only');
         allowedTokens[_token] = _tokenPermit;
         emit TokenPermitted(_token, _tokenPermit);
     }
