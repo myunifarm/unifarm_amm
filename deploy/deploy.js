@@ -114,10 +114,10 @@ const main = async () => {
 
   //set governance as timelock admin
   const iface = new ethers.utils.Interface(['function setPendingAdmin(address pendingAdmin_)'])
-  const setPendingAdminData = iface.encodeFunctionData('setPendingAdmin', [gov.address])
+  const setPendingAdminData = iface.encodeFunctionData('setPendingAdmin', [govDelegator.address])
 
   const timestamp = (await ethers.provider.getBlock()).timestamp
-  const eta = timestamp + configs.timelockDelay
+  const eta = timestamp + parseInt(configs.timelockDelay)
 
   await (await ethers.getContract('Timelock')).queueTransaction(timelock, 0, '', setPendingAdminData, eta)
 
