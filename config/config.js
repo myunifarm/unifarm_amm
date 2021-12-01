@@ -44,6 +44,28 @@ module.exports = {
     ufarmInitialSupply: '1000000000000000000000000000',
     timelockDelay: '400'
   },
+  '4': {
+    weth: '0x42d26F945718A38e5bA402Bd2eaAC95D32A2c194',
+    ufarm: '0xd0eeF84338Ca0F7236990c405aa404B6d7BD5b9C',
+    timelock: '0xFcd4e3D9A0Fc13109881ECE82862390993ca0EF5',
+    govDelegatorAdmin: '0x8D0ed255C1a7755Ca00Ad7Ea7269b5Ad388259C0',
+    feeTo: '0x8D0ed255C1a7755Ca00Ad7Ea7269b5Ad388259C0',
+    ammUtilityFeeTo: '0x8D0ed255C1a7755Ca00Ad7Ea7269b5Ad388259C0',
+    trustedForwarder: '0xFD4973FeB2031D4409fB57afEE5dF2051b171104',
+    owners: ['0x8D0ed255C1a7755Ca00Ad7Ea7269b5Ad388259C0'],
+    admin: '0x8D0ed255C1a7755Ca00Ad7Ea7269b5Ad388259C0',
+    required: 1, // required should be less than equal to owners array length
+    ammUtilityFee: '1000',
+    lpFee: '100',
+    swapFee: '100',
+    lpFeesInToken: true,
+    swapFeesInToken: true,
+    votingPeriod: '7200',
+    votingDelay: '1',
+    proposalThreshold: '100000000000000000000000',
+    ufarmInitialSupply: '1000000000000000000000000000',
+    timelockDelay: '400'
+  },
   '1': {
     weth: '',
     ufarm: '',
