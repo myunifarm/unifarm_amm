@@ -37,6 +37,15 @@ contract AMMUtility is Ownable, ReentrancyGuard {
         WETH = _weth;
     }
 
+    function updateFee(uint256 _fee) external onlyOwner {
+        fee = _fee;
+    }
+
+    function updateFeeTo(address payable _feeTo) external onlyOwner {
+        require(_feeTo != address(0), 'ZERO_ADDRESS');
+        feeTo = _feeTo;
+    }
+
     function swapTokens(
         address _sourceToken,
         address _destToken,
