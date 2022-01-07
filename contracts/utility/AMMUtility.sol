@@ -24,15 +24,11 @@ contract AMMUtility is Ownable, ReentrancyGuard {
 
     event TokenSwapExecuted(address sourceToken, address destinationToken, uint256 amount);
 
-    constructor(
-        address payable _feeTo,
-        uint256 _fee,
-        IWETH _weth
-    ) public {
+    constructor(address payable _feeTo, IWETH _weth) public {
         require(_feeTo != address(0), 'ZERO_ADDRESS');
         require(address(_weth) != address(0), 'ZERO_ADDRESS_WETH');
 
-        fee = _fee;
+        fee = 15 * 10**16;
         feeTo = _feeTo;
         WETH = _weth;
     }
