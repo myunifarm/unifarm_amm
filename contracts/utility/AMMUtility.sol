@@ -20,6 +20,7 @@ contract AMMUtility is Ownable, ReentrancyGuard {
     address payable public feeTo;
 
     uint256 public fee;
+    uint256 public constant DECIMALS = 10**16;
     address fallbackReceiver;
 
     event TokenSwapExecuted(address sourceToken, address destinationToken, uint256 amount);
@@ -28,7 +29,7 @@ contract AMMUtility is Ownable, ReentrancyGuard {
         require(_feeTo != address(0), 'ZERO_ADDRESS');
         require(address(_weth) != address(0), 'ZERO_ADDRESS_WETH');
 
-        fee = 15 * 10**16;
+        fee = 15 * DECIMALS;
         feeTo = _feeTo;
         WETH = _weth;
     }
