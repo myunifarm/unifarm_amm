@@ -74,8 +74,8 @@ library UnifarmLibrary {
         require(amountIn > 0, 'UnifarmLibrary: INSUFFICIENT_INPUT_AMOUNT');
         require(reserveIn > 0 && reserveOut > 0, 'UnifarmLibrary: INSUFFICIENT_LIQUIDITY');
         address pair = pairFor(factory, tokenIn, tokenOut);
-        uint256 fees = _swapFee(factory, pair);
-        uint256 amountInWithFee = amountIn.mul(1000 - fees);
+        uint256 fees = uint256(1000).sub(_swapFee(factory, pair));
+        uint256 amountInWithFee = amountIn.mul(fees);
         uint256 numerator = amountInWithFee.mul(reserveOut);
         uint256 denominator = reserveIn.mul(1000).add(amountInWithFee);
         amountOut = numerator / denominator;
@@ -93,18 +93,17 @@ library UnifarmLibrary {
         require(amountOut > 0, 'UnifarmLibrary: INSUFFICIENT_OUTPUT_AMOUNT');
         require(reserveIn > 0 && reserveOut > 0, 'UnifarmLibrary: INSUFFICIENT_LIQUIDITY');
         address pair = pairFor(factory, tokenIn, tokenOut);
-        uint256 fees = _swapFee(factory, pair);
+        uint256 fees = uint256(1000).sub(_swapFee(factory, pair));
         uint256 numerator = reserveIn.mul(amountOut).mul(1000);
-        uint256 denominator = reserveOut.sub(amountOut).mul(1000 - fees);
+        uint256 denominator = reserveOut.sub(amountOut).mul(fees);
         amountIn = (numerator / denominator).add(1);
     }
 
     function _swapFee(address factory, address pair) private view returns (uint256 fees) {
-        (bool lpFeesInToken, bool swapFeesInToken, uint256 lpFee, uint256 swapFee) = IUnifarmFactory(factory)
+        (, bool swapFeesInToken, , uint256 swapFee) = IUnifarmFactory(factory)
             .pairConfigs(pair);
 
         if (swapFeesInToken) fees = fees.add(swapFee);
-        if (lpFeesInToken) fees = fees.add(lpFee);
     }
 
     // performs chained getAmountOut calculations on any number of pairs
