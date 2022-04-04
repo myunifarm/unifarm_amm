@@ -1,2 +1,14 @@
 node_modules/
 build/
+
+artifacts
+cache
+coverage
+.env
+
+coverage.json
+abi
+yarn.lock
+
+config/*-addresses.json
+deployments
