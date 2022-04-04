@@ -52,7 +52,7 @@ const main = async () => {
 
   const ammUtility = await deployAndVerify(
     'AMMUtility',
-    [configs.ammUtilityFeeTo || deployer, configs.ammUtilityFee, wethAddress],
+    [configs.ammUtilityFeeTo || deployer, wethAddress],
     deployer,
     'contracts/utility/AMMUtility.sol:AMMUtility',
     chainId
