@@ -20,21 +20,27 @@ contract AMMUtility is Ownable, ReentrancyGuard {
     address payable public feeTo;
 
     uint256 public fee;
+    uint256 public constant DECIMALS = 10**16;
     address fallbackReceiver;
 
     event TokenSwapExecuted(address sourceToken, address destinationToken, uint256 amount);
 
-    constructor(
-        address payable _feeTo,
-        uint256 _fee,
-        IWETH _weth
-    ) public {
+    constructor(address payable _feeTo, IWETH _weth) public {
         require(_feeTo != address(0), 'ZERO_ADDRESS');
         require(address(_weth) != address(0), 'ZERO_ADDRESS_WETH');
 
-        fee = _fee;
+        fee = 15 * DECIMALS;
         feeTo = _feeTo;
         WETH = _weth;
+    }
+
+    function updateFee(uint256 _fee) external onlyOwner {
+        fee = _fee;
+    }
+
+    function updateFeeTo(address payable _feeTo) external onlyOwner {
+        require(_feeTo != address(0), 'ZERO_ADDRESS');
+        feeTo = _feeTo;
     }
 
     function swapTokens(

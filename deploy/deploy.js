@@ -46,7 +46,7 @@ const main = async () => {
     'MultiSigWallet',
     [configs.owners || [deployer], configs.required],
     deployer,
-    'contracts/utility/MultiSigWallet.sol:MultiSigWallet',
+    'contracts/MultiSigWallet.sol:MultiSigWallet',
     chainId
   )
 
@@ -54,7 +54,7 @@ const main = async () => {
     'AMMUtility',
     [configs.ammUtilityFeeTo || deployer, configs.ammUtilityFee, wethAddress],
     deployer,
-    'contracts/AMMUtility.sol:AMMUtility',
+    'contracts/utility/AMMUtility.sol:AMMUtility',
     chainId
   )
 

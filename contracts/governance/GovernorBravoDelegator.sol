@@ -61,6 +61,7 @@ contract GovernorBravoDelegator is GovernorBravoDelegatorStorage, GovernorBravoE
      * @param data The raw data to delegatecall
      */
     function delegateTo(address callee, bytes memory data) internal {
+        require(callee != address(0), 'GovernorBravoDelegator::delegateTo: invalid callee address');
         (bool success, bytes memory returnData) = callee.delegatecall(data);
         assembly {
             if eq(success, 0) {
