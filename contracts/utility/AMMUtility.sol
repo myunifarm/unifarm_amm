@@ -21,7 +21,8 @@ contract AMMUtility is Ownable, ReentrancyGuard {
 
     uint256 public fee;
     uint256 public constant DECIMALS = 10**16;
-    address fallbackReceiver;
+
+    mapping(address => bool) public whitelistedSwapTargets;
 
     event TokenSwapExecuted(address sourceToken, address destinationToken, uint256 amount);
 
@@ -43,6 +44,12 @@ contract AMMUtility is Ownable, ReentrancyGuard {
         feeTo = _feeTo;
     }
 
+    function whitelistSwapTargets(address[] calldata swapTargets, bool[] calldata isWhitelisted) external onlyOwner {
+        for (uint256 index = 0; index < swapTargets.length; index++) {
+            whitelistedSwapTargets[swapTargets[index]] = isWhitelisted[index];
+        }
+    }
+
     function swapTokens(
         address _sourceToken,
         address _destToken,
@@ -55,6 +62,7 @@ contract AMMUtility is Ownable, ReentrancyGuard {
         require(_sourceToken != address(0) && _destToken != address(0), 'ZERO_TOKEN_ADDRESS');
         require(_sourceToken != _destToken, 'SAME_ADDRESS');
         require(msg.value == fee.add(_value), 'INVALID_FEE_PROVIDED');
+        require(whitelistedSwapTargets[_swapTarget], 'UNKNOWN_SWAP_TARGET_ADDRESS');
 
         TransferHelper.safeTransferETH(feeTo, fee);
 
@@ -78,7 +86,6 @@ contract AMMUtility is Ownable, ReentrancyGuard {
         bytes memory _swapCallData,
         uint256 _value
     ) internal returns (uint256 boughtAmount) {
-        fallbackReceiver = _swapTarget;
         boughtAmount = _destToken.balanceOf(address(this));
 
         // Call the encoded swap function call on the contract at `swapTarget`,
@@ -89,11 +96,11 @@ contract AMMUtility is Ownable, ReentrancyGuard {
         // Refund any unspent protocol fees to the sender.
         TransferHelper.safeTransferETH(msg.sender, address(this).balance);
 
-        boughtAmount = _destToken.balanceOf(address(this)) - boughtAmount;
+        boughtAmount = _destToken.balanceOf(address(this)).sub(boughtAmount);
     }
 
     function() external payable {
-        require(msg.sender == fallbackReceiver, 'ERR_INVALID_ETH_SENDER');
+        require(whitelistedSwapTargets[msg.sender], 'ERR_INVALID_ETH_SENDER');
     }
 
     function withdrawToken(IERC20 token, uint256 amount) external onlyOwner {

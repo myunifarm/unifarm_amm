@@ -4,21 +4,22 @@ const { solidity } = waffle
 use(solidity)
 const { expandTo18Decimals } = require('./utils/utilities')
 
-const deploy = async (feeTo, fee) => {
+const deploy = async feeTo => {
   const AMMUtility = await ethers.getContractFactory('AMMUtility')
   const Weth = await ethers.getContractFactory('WETH9')
   const weth = await Weth.deploy()
-  return AMMUtility.deploy(feeTo, fee, weth.address)
+  await weth.deployed()
+  return await AMMUtility.deploy(feeTo, weth.address)
 }
 
 describe('AMMUtility', () => {
   let ammUtilityInstance, sourceToken, destToken
   let owner, user
-  let fee = expandTo18Decimals(2).div(100) //0.02 ETH
+  let fee = expandTo18Decimals(15).div(100) //0.015 ETH
 
   beforeEach(async () => {
     ;[owner, user] = await ethers.getSigners()
-    ammUtilityInstance = await deploy(owner.address, fee)
+    ammUtilityInstance = await deploy(owner.address)
 
     const Token = await ethers.getContractFactory('ERC20')
     sourceToken = await Token.deploy(expandTo18Decimals('10000'))

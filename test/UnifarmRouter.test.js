@@ -302,7 +302,7 @@ describe('UnifarmRouter02 - liquidity', () => {
     const token0Amount = expandTo18Decimals(5)
     const token1Amount = expandTo18Decimals(10)
     const swapAmount = expandTo18Decimals(1)
-    const expectedOutputAmount = BigNumber.from('1661107404936624416')
+    const expectedOutputAmount = BigNumber.from('1663887962654218072')
 
     beforeEach(async () => {
       await addLiquidity(token0Amount, token1Amount)
@@ -345,7 +345,7 @@ describe('UnifarmRouter02 - liquidity', () => {
   describe('swapTokensForExactTokens', () => {
     const token0Amount = expandTo18Decimals(5)
     const token1Amount = expandTo18Decimals(10)
-    const expectedSwapAmount = BigNumber.from('557786702365015619')
+    const expectedSwapAmount = BigNumber.from('556668893342240036')
     const outputAmount = expandTo18Decimals(1)
 
     beforeEach(async () => {
@@ -377,7 +377,7 @@ describe('UnifarmRouter02 - liquidity', () => {
     const WETHPartnerAmount = expandTo18Decimals(10)
     const ETHAmount = expandTo18Decimals(5)
     const swapAmount = expandTo18Decimals(1)
-    const expectedOutputAmount = BigNumber.from('1661107404936624416')
+    const expectedOutputAmount = BigNumber.from('1663887962654218072')
 
     beforeEach(async () => {
       await WETHPartner.transfer(WETHPair.address, WETHPartnerAmount)
@@ -444,7 +444,7 @@ describe('UnifarmRouter02 - liquidity', () => {
   describe('swapTokensForExactETH', () => {
     const WETHPartnerAmount = expandTo18Decimals(5)
     const ETHAmount = expandTo18Decimals(10)
-    const expectedSwapAmount = BigNumber.from('557786702365015619')
+    const expectedSwapAmount = BigNumber.from('556668893342240036')
     const outputAmount = expandTo18Decimals(1)
 
     beforeEach(async () => {
@@ -487,7 +487,7 @@ describe('UnifarmRouter02 - liquidity', () => {
     const WETHPartnerAmount = expandTo18Decimals(5)
     const ETHAmount = expandTo18Decimals(10)
     const swapAmount = expandTo18Decimals(1)
-    const expectedOutputAmount = BigNumber.from('1661107404936624416')
+    const expectedOutputAmount = BigNumber.from('1663887962654218072')
 
     beforeEach(async () => {
       await WETHPartner.transfer(WETHPair.address, WETHPartnerAmount)
@@ -521,7 +521,7 @@ describe('UnifarmRouter02 - liquidity', () => {
   describe('swapETHForExactTokens', () => {
     const WETHPartnerAmount = expandTo18Decimals(10)
     const ETHAmount = expandTo18Decimals(5)
-    const expectedSwapAmount = BigNumber.from('557786702365015619')
+    const expectedSwapAmount = BigNumber.from('556668893342240036')
     const outputAmount = expandTo18Decimals(1)
 
     beforeEach(async () => {
