@@ -99,6 +99,10 @@ contract UnifarmPair is IUnifarmPair, UnifarmERC20 {
         trustedForwarder = _trustedForwarder;
     }
 
+    function updateTrustedForwarder() external {
+        trustedForwarder = IUnifarmFactory(factory).trustedForwarder();
+    }
+
     // update reserves and, on the first call per block, price accumulators
     function _update(
         uint256 balance0,

@@ -17,7 +17,7 @@ contract BaseRelayRecipient is IRelayRecipient {
      * require a function to be called through GSN only
      */
     modifier trustedForwarderOnly() {
-        require(msg.sender == address(trustedForwarder), 'Function can only be called through the trusted Forwarder');
+        require(msg.sender == trustedForwarder, 'Function can only be called through the trusted Forwarder');
         _;
     }
 

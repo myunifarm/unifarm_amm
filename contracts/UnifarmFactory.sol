@@ -74,6 +74,11 @@ contract UnifarmFactory is IUnifarmFactory, Ownable, BaseRelayRecipient {
         return keccak256(type(UnifarmPair).creationCode);
     }
 
+    function setTrustedForwarder(address _trustedForwarder) external onlyOwner {
+        require(_trustedForwarder != address(0), 'Unifarm: ZERO_ADDRESS');
+        trustedForwarder = _trustedForwarder;
+    }
+
     function createPair(address tokenA, address tokenB) external returns (address pair) {
         require(tokenA != tokenB, 'Unifarm: IDENTICAL_ADDRESSES');
         (address token0, address token1) = tokenA < tokenB ? (tokenA, tokenB) : (tokenB, tokenA);

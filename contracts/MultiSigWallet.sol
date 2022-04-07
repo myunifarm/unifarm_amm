@@ -68,7 +68,7 @@ contract MultiSigWallet {
     modifier transactionExists(uint256 transactionId) {
         require(
             transactions[transactionId].destination != address(0),
-            'MultiSigWallet::transactionExists: ERR_INVALID_TARGET'
+            'MultiSigWallet::transactionExists: ERR_INVALID_TX'
         );
         _;
     }
